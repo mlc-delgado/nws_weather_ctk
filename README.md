@@ -1,7 +1,11 @@
 # NWS Weather CTk
 
-This is a simple Python application written with customtkinter that fetches weather data from the National Weather Service. Simply enter your city name and postal code, and then click on **Get Weather**. The app will use geocoding and the NWS API to fetch current forecast data and active alerts for your region. 
+This is a simple Python application written with customtkinter that fetches weather data from the U.S. National Weather Service.
 
-If you want to change your location you can re-enter a new city and postal code, and then click on **Update Location** to set the new location.
+## Usage
 
-This project was started for fun and educational purposes. Use this code however you like.
+Start the application by running main.py.
+
+Once started, simply enter your city name and postal code, and then click on **Set Location**. The app will use geocoding from MAPS and the NWS API to fetch current forecast data and active alerts for your region. Active alerts will only show if your county name is mentioned in the alert details. Weather data is refreshed every 5 minutes. 
+
+If you want to change your location you can re-enter a new city and postal code, and then click on **Set Location** to update the forecast. Location data is stored locally in a config yaml and updated only when the location changes.
