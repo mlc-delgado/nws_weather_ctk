@@ -40,6 +40,10 @@ class InputFrame(customtkinter.CTkFrame):
         self.entry2 = customtkinter.CTkEntry(master=self, placeholder_text='Postal Code')
         self.entry2.pack(pady=12, padx=12)
 
+        # add button to set location
+        self.button = customtkinter.CTkButton(master=self, text='Set Location', command=lambda: app.get_weather())
+        self.button.pack(pady=12, padx=12)
+
     # return the values of the input boxes
     def get_values(self):
         return self.entry1.get(), self.entry2.get()
@@ -49,10 +53,7 @@ class WeatherFrame(customtkinter.CTkFrame):
         # call the parent class constructor
         super().__init__(*args, **kwargs)
 
-        # add button to set location
-        self.button = customtkinter.CTkButton(master=self, text='Set Location', command=self.display_weather)
-        self.button.pack(pady=12, padx=12)
-
+    # display the forecast and alerts
     def display_weather(self, city=None, postal_code=None):
         # unpack existing labels to clear the frame
         try:
@@ -98,10 +99,6 @@ class WeatherFrame(customtkinter.CTkFrame):
                     
                     # update the label periodically
                     self.alertLabel.after(refresh_ms, self.display_weather)
-    
-    # update the location and display the weather
-    def update_location(self):
-        app.update_location()
 
 # define the main App class
 class App(customtkinter.CTk):
@@ -127,9 +124,9 @@ class App(customtkinter.CTk):
     def update_location(self):
         try:
             update(self.input_frame.get_values()[0], self.input_frame.get_values()[1])
-        # log an error if the location cannot be updated
+        # log an error if the location cannot be set
         except Exception as e:
-            logger.error(f'Error updating location: {e}')
+            logger.error(f'Error setting location: {e}')
 
 # run the app
 if __name__ == '__main__':
