@@ -17,14 +17,14 @@ class InputFrame(customtkinter.CTkFrame):
         super().__init__(*args, **kwargs)
 
         # provide input boxes for city and state
-        self.entry1 = customtkinter.CTkEntry(master=self, placeholder_text='City')
+        self.entry1 = customtkinter.CTkEntry(master=self, font=('arial bold', 14),  placeholder_text='City')
         self.entry1.pack(pady=12, padx=12)
 
-        self.entry2 = customtkinter.CTkEntry(master=self, placeholder_text='State')
+        self.entry2 = customtkinter.CTkEntry(master=self, font=('arial bold', 14), placeholder_text='State')
         self.entry2.pack(pady=12, padx=12)
 
         # add button to set location
-        self.button = customtkinter.CTkButton(master=self, text='Set Location', command=lambda: app.get_weather())
+        self.button = customtkinter.CTkButton(master=self, font=('arial bold', 14), text='Set Location', command=lambda: app.get_weather())
         self.button.pack(pady=12, padx=12)
 
     # return the values of the input boxes
@@ -61,11 +61,11 @@ class WeatherFrame(customtkinter.CTkFrame):
 
         # add a label for the current weather icon
         # display the emoji for the forecast
-        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',30),text=get_emoji(forecast_data['properties']['periods'][0]['shortForecast']))
+        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',48), text=get_emoji(forecast_data['properties']['periods'][0]['shortForecast']))
         self.iconLabel.pack(pady=12, padx=12)
 
         # add label to show the current temperature and forecast
-        self.forecastLabel = customtkinter.CTkLabel(master=self, text='Weather for {city}, {state}\nTemperature: {temperature}°F\nForecast: {forecast}'.format(city=config['city'], state=config['state'], temperature=forecast_data['properties']['periods'][0]['temperature'], forecast=forecast_data['properties']['periods'][0]['shortForecast']))
+        self.forecastLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text='Weather for {city}, {state}\nTemperature: {temperature}°F\nForecast: {forecast}'.format(city=config['city'], state=config['state'], temperature=forecast_data['properties']['periods'][0]['temperature'], forecast=forecast_data['properties']['periods'][0]['shortForecast']))
         self.forecastLabel.pack(pady=12, padx=12)
 
         # update the label periodically
@@ -84,10 +84,10 @@ class WeatherFrame(customtkinter.CTkFrame):
                 # remove duplicates from the list
                 alert_matches = list(set(alert_matches))
                 # add the alert label
-                self.alertLabel = customtkinter.CTkLabel(master=self, text='Active alerts:')
+                self.alertLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text='Active alerts:')
                 self.alertLabel.pack(pady=0, padx=12)
                 # add the list of alerts
-                self.alertsListLabel = customtkinter.CTkLabel(master=self, text='\n'.join(alert_matches))
+                self.alertsListLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text='\n'.join(alert_matches))
                 self.alertsListLabel.pack(pady=0, padx=12)
 
                 # update the labels periodically
@@ -95,7 +95,7 @@ class WeatherFrame(customtkinter.CTkFrame):
                 self.alertsListLabel.after(refresh_ms, self.display_weather)
                 
         # add a button to update location
-        self.button = customtkinter.CTkButton(master=self, text='Update Location', command=lambda: app.show_input())
+        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Update Location', command=lambda: app.show_input())
         self.button.pack(pady=12, padx=12)
 
 # define the main App class
