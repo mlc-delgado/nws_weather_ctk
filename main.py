@@ -1,5 +1,6 @@
 import customtkinter
-from config import logger, update, load_config,  clear_config, forecast, active_alerts
+from config import logger, update, load_config,  clear_config, check_config
+from data import forecast, active_alerts
 from icons import get_emoji
 
 # set the frame refresh rate in milliseconds
@@ -40,6 +41,8 @@ class WeatherFrame(customtkinter.CTkFrame):
     def display_weather(self, city=None, state=None):
         # unpack existing labels to clear the frame
         try:
+            self.iconLabel.pack_forget()
+            self.button.pack_forget()
             self.forecastLabel.pack_forget()
             self.alertLabel.pack_forget()
             self.alertsListLabel.pack_forget()
@@ -47,11 +50,11 @@ class WeatherFrame(customtkinter.CTkFrame):
         except Exception:
             pass
 
-        # load the config file
+        # load the config file and check if the location is set
         config = load_config()
 
-        # if the config file is empty, or doesn't match the input city and state, or doesn't contain all the required keys, update the location config
-        if not config or city != config['city'] or state != config['state'] or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'state']):
+        # Update the config file if it differs from the input
+        if not check_config(config):
             app.update_location()
             config = load_config()
     
@@ -109,7 +112,8 @@ class App(customtkinter.CTk):
 
         # load the config file and check if the location is set
         config = load_config()
-        if not config or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'state']):
+
+        if not check_config(config):
             # if the location is not set, prompt for input
             self.show_input()
         else:
@@ -151,9 +155,14 @@ class App(customtkinter.CTk):
     def update_location(self):
         try:
             update(self.input_frame.get_values()[0], self.input_frame.get_values()[1])
-        # log an error if the location cannot be set
+        # ignore exception when the input frame is not present
+        except AttributeError:
+            pass
+        # log an error and exit if anything else happens
         except Exception as e:
-            logger.error('Error setting location: {}'.format(e))
+            logger.error('Error updating location: {}'.format(e))
+            exit(1)
+
 
 # run the app
 if __name__ == '__main__':

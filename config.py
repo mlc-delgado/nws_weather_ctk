@@ -1,7 +1,6 @@
 import requests
 import os
 import yaml
-import time
 import logging
 
 # set up logger
@@ -27,6 +26,14 @@ def clear_config():
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
         yaml.dump({}, f)
     f.close()
+
+# check the config file for the location
+def check_config(config):
+    # if the config file is empty, or doesn't contain all the required keys, update the location config
+    if not config or config == {} or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'state']):
+        return False
+    else:
+        return True
 
 # Update the config file
 def update(city, state):
@@ -71,8 +78,6 @@ def update(city, state):
     # If the geocoding API fails log an error and exit
     except Exception as e:
         logger.error('Error getting geocoding data, please check your location and try again. Error: {}'.format(e))
-        logger.info('Sent geocode url: {}'.format(geocode_url))
-        logger.info('Returned geocode data: {}'.format(geocode_data))
         exit(1)
 
     # Fetch forecast data from the NWS API
@@ -89,53 +94,9 @@ def update(city, state):
     # If the points API fails log an error and exit
     except Exception as e:
         logger.error('Error getting points data, please check your location and try again. Error: {}'.format(e))
-        logger.info('Sent points url: {}'.format(points_url))
-        logger.info('Returned points data: {}'.format(points_data))
         exit(1)
 
     # Write the config file with the new data
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
         yaml.dump(config, f)
     f.close()
-
-# get the current forecast
-def forecast(config):
-    # set the forecast url
-    forecast_url = 'https://api.weather.gov/gridpoints/{office}/{gridX},{gridY}/forecast'.format(office=config['office'], gridX=config['gridX'], gridY=config['gridY'])
-    # get the forecast data
-    try:
-        data = requests.get(forecast_url).json()
-    # log any errors from the request
-    except Exception as e:
-        logger.error('Error getting forecast data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        return forecast(config)        
-    # check that the forecast data has properties, and if not log an error
-    if 'properties' not in data:
-        logger.error('Invalid forecast data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        return forecast(config)
-    return data
-
-# get the current alerts
-def active_alerts(config):
-    # set the active alerts url
-    alerts_url = 'https://api.weather.gov/alerts/active?area={state}'.format(state=config['state'])
-    # get the active alerts data
-    try:
-        data = requests.get(alerts_url).json()
-    # log any errors from the request
-    except Exception as e:
-        logger.error('Error getting active alerts data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        return active_alerts(config)
-    # check that the active alerts data has features, and if not log an error
-    if 'features' not in data:
-        logger.error('Invalid active alerts data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        return active_alerts(config)
-    return data
