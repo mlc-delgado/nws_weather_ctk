@@ -16,11 +16,11 @@ class InputFrame(customtkinter.CTkFrame):
         # call the parent class constructor
         super().__init__(*args, **kwargs)
 
-        # provide input boxes for city and postal code
+        # provide input boxes for city and state
         self.entry1 = customtkinter.CTkEntry(master=self, placeholder_text='City')
         self.entry1.pack(pady=12, padx=12)
 
-        self.entry2 = customtkinter.CTkEntry(master=self, placeholder_text='Postal Code')
+        self.entry2 = customtkinter.CTkEntry(master=self, placeholder_text='State')
         self.entry2.pack(pady=12, padx=12)
 
         # add button to set location
@@ -37,11 +37,12 @@ class WeatherFrame(customtkinter.CTkFrame):
         super().__init__(*args, **kwargs)
 
     # display the forecast and alerts
-    def display_weather(self, city=None, postal_code=None):
+    def display_weather(self, city=None, state=None):
         # unpack existing labels to clear the frame
         try:
             self.forecastLabel.pack_forget()
             self.alertLabel.pack_forget()
+            self.alertsListLabel.pack_forget()
         # ignore exceptions in case labels don't exist
         except Exception:
             pass
@@ -49,8 +50,8 @@ class WeatherFrame(customtkinter.CTkFrame):
         # load the config file
         config = load_config()
 
-        # if the config file is empty, or doesn't match the input city and postal code, or doesn't contain all the required keys, update the location config
-        if not config or city != config['city'] or postal_code != config['postalCode'] or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'postalCode', 'state']):
+        # if the config file is empty, or doesn't match the input city and state, or doesn't contain all the required keys, update the location config
+        if not config or city != config['city'] or state != config['state'] or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'state']):
             app.update_location()
             config = load_config()
     
@@ -72,14 +73,27 @@ class WeatherFrame(customtkinter.CTkFrame):
 
         # add label to show active alerts if the alert contains the county name
         if len(alerts_data['features']) > 0:
+            # make a list of alerts that match the county name
+            alert_matches = []
             for alert in alerts_data['features']:
                 if config['county'] in alert['properties']['areaDesc']:
-                    self.alertLabel = customtkinter.CTkLabel(master=self, text='Active alerts: {alert}'.format(alert=alert['properties']['event']))
-                    self.alertLabel.pack(pady=12, padx=12)
-                    
-                    # update the label periodically
-                    self.alertLabel.after(refresh_ms, self.display_weather)
+                    alert_matches.append(alert['properties']['event'])
 
+            # display the alerts if there are any
+            if len(alert_matches) > 0:
+                # remove duplicates from the list
+                alert_matches = list(set(alert_matches))
+                # add the alert label
+                self.alertLabel = customtkinter.CTkLabel(master=self, text='Active alerts:')
+                self.alertLabel.pack(pady=0, padx=12)
+                # add the list of alerts
+                self.alertsListLabel = customtkinter.CTkLabel(master=self, text='\n'.join(alert_matches))
+                self.alertsListLabel.pack(pady=0, padx=12)
+
+                # update the labels periodically
+                self.alertLabel.after(refresh_ms, self.display_weather)
+                self.alertsListLabel.after(refresh_ms, self.display_weather)
+                
         # add a button to update location
         self.button = customtkinter.CTkButton(master=self, text='Update Location', command=lambda: app.show_input())
         self.button.pack(pady=12, padx=12)
@@ -95,12 +109,12 @@ class App(customtkinter.CTk):
 
         # load the config file and check if the location is set
         config = load_config()
-        if not config or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'postalCode', 'state']):
+        if not config or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'state']):
             # if the location is not set, prompt for input
             self.show_input()
         else:
             # if the location is set, display the weather
-            self.show_weather(config['city'], config['postalCode'])
+            self.show_weather(config['city'], config['state'])
 
     # clear location config and display input frame
     def show_input(self):
@@ -117,15 +131,15 @@ class App(customtkinter.CTk):
         self.input_frame.pack(pady=20, padx=60, fill='both', expand=True)     
 
     # display weather
-    def show_weather(self, city, postal_code):
+    def show_weather(self, city, state):
         # add a frame for weather
         self.weather_frame = WeatherFrame(master=self)
         self.weather_frame.pack(pady=20, padx=60, fill='both', expand=True)
-        self.weather_frame.display_weather(city, postal_code)
+        self.weather_frame.display_weather(city, state)
 
     # set location from input
     def get_weather(self):
-        self.show_weather(city=self.input_frame.get_values()[0], postal_code=self.input_frame.get_values()[1])
+        self.show_weather(city=self.input_frame.get_values()[0], state=self.input_frame.get_values()[1])
         # unpack the input frame
         try:
             self.input_frame.pack_forget()

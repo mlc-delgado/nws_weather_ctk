@@ -29,38 +29,51 @@ def clear_config():
     f.close()
 
 # Update the config file
-def update(city, postalCode):
-    config = {'city': city, 'postalCode': postalCode}
-    # Set the geocoding url from MAPS
-    geocode_url = 'https://geocode.maps.co/search?postalcode={postalCode}'.format(postalCode=config['postalCode'])
+def update(city, state):
+    config = {'city': city, 'state': state}
 
-    # Get latitude and longitude from the geocoding API
+    # Load the list of state abbreviations from yaml file
+    with open(os.path.join(os.path.dirname(__file__), 'state_abbreviations.yaml'), 'r') as f:
+        state_abbreviations = yaml.safe_load(f)
+
+    # Check if the state was provided as full name or abbreviation
+
+    # If it was provided as a full name, convert it to the abbreviation
+    if config['state'] in state_abbreviations:
+        config['state'] = state_abbreviations[config['state']]
+
+    # if the state is 2 characters, assume it is an abbreviation
+    if len(config['state']) == 2:
+        config['state'] = config['state'].upper()
+
+    # log an error and exit if the state is not a valid state name or abbreviation
+    if config['state'] not in state_abbreviations.values():
+        logger.error('Invalid state provided, please check your location and try again')
+        exit(1)
+
+    # create a city_string from the city that replaces any spaces with plus signs
+    city_string = city.replace(' ', '+')
+    # Set the geocoding url from MAPS
+    geocode_url = 'https://geocode.maps.co/search?city={city}&state={state}&country=US'.format(city=city_string,state=config['state'])
+
+    # Get latitude, longitude, and county from the geocoding API
     try:
         geocode_data = requests.get(geocode_url).json()
-        # Set the latitude and longitude from the geocoding data
-        config['latitude'] = geocode_data[0]['lat']
-        config['longitude'] = geocode_data[0]['lon']
-    # If the geocoding API fails, try again
+        # Set the latitude and longitude from the geocoding data, and round the values to 4 decimal places
+        config['latitude'] = round(float(geocode_data[0]['lat']), 4)
+        config['longitude'] = round(float(geocode_data[0]['lon']), 4)
+        # set the county from the geocoding data
+        # extract from the display_name field in the format "City, County, State, Country"
+        config['county'] = geocode_data[0]['display_name'].split(',')[1].strip()
+        # Remove " County" from the county if it contains it
+        if ' County' in config['county']:
+            config['county'] = config['county'].replace(' County', '')
+    # If the geocoding API fails log an error and exit
     except Exception as e:
         logger.error('Error getting geocoding data, please check your location and try again. Error: {}'.format(e))
+        logger.info('Sent geocode url: {}'.format(geocode_url))
+        logger.info('Returned geocode data: {}'.format(geocode_data))
         exit(1)
-
-    # Set the reverse geocoding url from MAPS
-    reverse_geocode_url = 'https://geocode.maps.co/reverse?lat={latitude}&lon={longitude}'.format(latitude=config['latitude'], longitude=config['longitude'])
-
-    # Extract the county and state from the reverse geocoding API
-    try:
-        reverse_geocode_data = requests.get(reverse_geocode_url).json()
-        config['county'] = reverse_geocode_data['address']['county']
-        config['state'] = reverse_geocode_data['address']['state']
-    # If the reverse geocoding API fails, try again
-    except Exception as e:
-        logger.error('Error getting reverse geocoding data, please check your location and try again. Error: {}'.format(e))
-        exit(1)
-    
-    # Remove " County" from the county if it contains it
-    if ' County' in config['county']:
-        config['county'] = config['county'].replace(' County', '')
 
     # Fetch forecast data from the NWS API
 
@@ -73,17 +86,12 @@ def update(city, postalCode):
         config['office'] = points_data['properties']['gridId']
         config['gridX'] = str(points_data['properties']['gridX'])
         config['gridY'] = str(points_data['properties']['gridY'])
-    # If the points API fails log an error
+    # If the points API fails log an error and exit
     except Exception as e:
         logger.error('Error getting points data, please check your location and try again. Error: {}'.format(e))
+        logger.info('Sent points url: {}'.format(points_url))
+        logger.info('Returned points data: {}'.format(points_data))
         exit(1)
-
-    # Load the list of state abbreviations from yaml file
-    with open(os.path.join(os.path.dirname(__file__), 'state_abbreviations.yaml'), 'r') as f:
-        state_abbreviations = yaml.safe_load(f)
-
-    # Convert the state name to the state abbreviation
-    config['state'] = state_abbreviations[config['state']]
 
     # Write the config file with the new data
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
