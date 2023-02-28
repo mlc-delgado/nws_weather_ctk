@@ -42,10 +42,8 @@ def update(city, postalCode):
         config['longitude'] = geocode_data[0]['lon']
     # If the geocoding API fails, try again
     except Exception as e:
-        logger.error('Error getting geocoding data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        update(city, postalCode)
+        logger.error('Error getting geocoding data, please check your location and try again. Error: {}'.format(e))
+        exit(1)
 
     # Set the reverse geocoding url from MAPS
     reverse_geocode_url = 'https://geocode.maps.co/reverse?lat={latitude}&lon={longitude}'.format(latitude=config['latitude'], longitude=config['longitude'])
@@ -57,10 +55,8 @@ def update(city, postalCode):
         config['state'] = reverse_geocode_data['address']['state']
     # If the reverse geocoding API fails, try again
     except Exception as e:
-        logger.error('Error getting reverse geocoding data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        update(city, postalCode)
+        logger.error('Error getting reverse geocoding data, please check your location and try again. Error: {}'.format(e))
+        exit(1)
     
     # Remove " County" from the county if it contains it
     if ' County' in config['county']:
@@ -77,12 +73,10 @@ def update(city, postalCode):
         config['office'] = points_data['properties']['gridId']
         config['gridX'] = str(points_data['properties']['gridX'])
         config['gridY'] = str(points_data['properties']['gridY'])
-    # If the points API fails, try again
+    # If the points API fails log an error
     except Exception as e:
-        logger.error('Error getting points data, retrying')
-        time.sleep(retry_delay)
-        # try again
-        update(city, postalCode)
+        logger.error('Error getting points data, please check your location and try again. Error: {}'.format(e))
+        exit(1)
 
     # Load the list of state abbreviations from yaml file
     with open(os.path.join(os.path.dirname(__file__), 'state_abbreviations.yaml'), 'r') as f:

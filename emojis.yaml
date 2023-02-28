@@ -1,0 +1,99 @@
+cloudy:
+  keywords:
+  - cloud
+  - cloudy
+  unicode: U00012601
+  text: "☁️"
+fog:
+  keywords:
+  - fog
+  - foggy
+  unicode: U0001F32B
+  text: "🌫"
+lightning:
+  keywords:
+  - lightning
+  - thunder
+  - storm
+  - storms
+  unicode: U0001F329
+  text: "🌩"
+mostlyCloudy:
+  keywords:
+  - mostly
+  - cloud
+  - cloudy
+  unicode: U0001F325
+  text: "🌥"
+mostlySunny:
+  keywords:
+  - mostly
+  - sun
+  - sunny
+  unicode: U0001F324
+  text: "🌤"
+night:
+  keywords:
+  - night
+  - moon
+  - clear
+  unicode: U0001F319
+  text: "🌙"
+partlyCloudy:
+  keywords:
+  - partly
+  - cloud
+  - cloudy
+  - overcast
+  - scattered
+  unicode: U000126C5
+  text: "⛅"
+partlyRainy:
+  keywords:
+  - partly
+  - rain
+  - rainy
+  - showers
+  - light
+  unicode: U0001F326
+  text: "🌦"
+rain:
+  keywords:
+  - rain
+  - rainy
+  - showers
+  - heavy
+  unicode: U0001F327
+  text: "🌧"
+snow:
+  keywords:
+  - snow
+  - snowy
+  - light
+  - heavy
+  unicode: U0001F328
+  text: "🌨"
+sunny:
+  keywords:
+  - sun
+  - sunny
+  - clear
+  unicode: U00012600
+  text: "☀"
+thunderstorm:
+  keywords:
+  - thunder
+  - storm
+  - storms
+  - lightning
+  - rain
+  - rainy
+  unicode: U000126C8
+  text: "⛈"
+tornado:
+  keywords:
+  - tornado
+  - twister
+  - cyclone
+  unicode: U0001F32A
+  text: "🌪"

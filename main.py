@@ -1,5 +1,6 @@
 import customtkinter
 from config import logger, update, load_config,  clear_config, forecast, active_alerts
+from icons import get_emoji
 
 # set the frame refresh rate in milliseconds
 # default 1 hour
@@ -57,6 +58,11 @@ class WeatherFrame(customtkinter.CTkFrame):
         forecast_data = forecast(config)
         alerts_data = active_alerts(config)
 
+        # add a label for the current weather icon
+        # display the emoji for the forecast
+        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',30),text=get_emoji(forecast_data['properties']['periods'][0]['shortForecast']))
+        self.iconLabel.pack(pady=12, padx=12)
+
         # add label to show the current temperature and forecast
         self.forecastLabel = customtkinter.CTkLabel(master=self, text='Weather for {city}, {state}\nTemperature: {temperature}°F\nForecast: {forecast}'.format(city=config['city'], state=config['state'], temperature=forecast_data['properties']['periods'][0]['temperature'], forecast=forecast_data['properties']['periods'][0]['shortForecast']))
         self.forecastLabel.pack(pady=12, padx=12)
@@ -74,29 +80,9 @@ class WeatherFrame(customtkinter.CTkFrame):
                     # update the label periodically
                     self.alertLabel.after(refresh_ms, self.display_weather)
 
-        # add button to update location
-        self.updateButton = UpdateButton(master=self, text='Update Location', command=lambda: app.show_input())
-        self.updateButton.pack(pady=12, padx=12)
-
-    # display a blank label if the location is not set
-    def display_blank(self):
-        # unpack the update button and forecast/alert labels to clear the frame
-        try:
-            self.updateButton.pack_forget()
-            self.forecastLabel.pack_forget()
-            self.alertLabel.pack_forget()
-        # ignore exceptions in case button and labels don't exist
-        except Exception:
-            pass
-        # add the blank location label
-        self.blankLabel = customtkinter.CTkLabel(master=self, text='Location not set')
-        self.blankLabel.pack(pady=12, padx=12)
-
-# define UpdateButton class
-class UpdateButton(customtkinter.CTkButton):
-    def __init__(self, *args, **kwargs):
-        # call the parent class constructor
-        super().__init__(*args, **kwargs)
+        # add a button to update location
+        self.button = customtkinter.CTkButton(master=self, text='Update Location', command=lambda: app.show_input())
+        self.button.pack(pady=12, padx=12)
 
 # define the main App class
 class App(customtkinter.CTk):
@@ -107,40 +93,45 @@ class App(customtkinter.CTk):
         # set the window title
         self.title('NWS Weather CTk')
 
-        # add a frame for weather
-        self.weather_frame = WeatherFrame(master=self)
-        self.weather_frame.pack(pady=20, padx=60, fill='both', expand=True)
-
         # load the config file and check if the location is set
         config = load_config()
         if not config or not all(key in config for key in ['city', 'county', 'gridX', 'gridY', 'latitude', 'longitude', 'office', 'postalCode', 'state']):
-            # if the location is not set, display 'Location not set'
-            self.show_blank()
+            # if the location is not set, prompt for input
+            self.show_input()
         else:
             # if the location is set, display the weather
             self.show_weather(config['city'], config['postalCode'])
 
-    # display frame and input if location is not set
-    def show_blank(self):
-        self.weather_frame.display_blank()
-        # add a frame for input
-        self.input_frame = InputFrame(master=self)
-        self.input_frame.pack(pady=20, padx=60, fill='both', expand=True)
-
-    # display frame and button if location is set
-    def show_weather(self, city, postal_code):
-        self.weather_frame.display_weather(city, postal_code)
-
-    # display the weather
-    def get_weather(self):
-        # unpack blank label and input frame
+    # clear location config and display input frame
+    def show_input(self):
+        # clear the config file
+        clear_config()
+        # unpack the weather frame
         try:
-            self.weather_frame.blankLabel.pack_forget()
-            self.input_frame.pack_forget()
-        # ignore exceptions in case the label and frame don't exist
+            self.weather_frame.pack_forget()
+        # ignore exceptions in case the frame doesn't exist
         except Exception:
             pass
-        self.weather_frame.display_weather(self.input_frame.get_values()[0], self.input_frame.get_values()[1])
+        # add the input frame
+        self.input_frame = InputFrame(master=self)
+        self.input_frame.pack(pady=20, padx=60, fill='both', expand=True)     
+
+    # display weather
+    def show_weather(self, city, postal_code):
+        # add a frame for weather
+        self.weather_frame = WeatherFrame(master=self)
+        self.weather_frame.pack(pady=20, padx=60, fill='both', expand=True)
+        self.weather_frame.display_weather(city, postal_code)
+
+    # set location from input
+    def get_weather(self):
+        self.show_weather(city=self.input_frame.get_values()[0], postal_code=self.input_frame.get_values()[1])
+        # unpack the input frame
+        try:
+            self.input_frame.pack_forget()
+        # ignore exceptions in case the frame doesn't exist
+        except Exception:
+            pass
 
     # update the location
     def update_location(self):
@@ -148,14 +139,7 @@ class App(customtkinter.CTk):
             update(self.input_frame.get_values()[0], self.input_frame.get_values()[1])
         # log an error if the location cannot be set
         except Exception as e:
-            logger.error(f'Error setting location: {e}')
-
-    # unset the location and display the blank weather frame
-    def show_input(self):
-        # clear the config file
-        clear_config()
-        # display the blank weather frame
-        self.show_blank()
+            logger.error('Error setting location: {}'.format(e))
 
 # run the app
 if __name__ == '__main__':
