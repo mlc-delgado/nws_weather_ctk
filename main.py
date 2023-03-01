@@ -37,22 +37,14 @@ class WeatherFrame(customtkinter.CTkFrame):
         # call the parent class constructor
         super().__init__(*args, **kwargs)
 
+    def clear_frame(self):
+        # clear the frame
+        for widget in self.winfo_children():
+            widget.destroy()
+
     # display the forecast and alerts
     def display_weather(self, city=None, state=None):
-        # unpack existing labels to clear the frame
-        try:
-            self.iconLabel.pack_forget()
-            self.button.pack_forget()
-            self.forecastLabel.pack_forget()
-            self.detailedButton.pack_forget()
-            app.detailedForecastTextbox.pack_forget()
-            app.hideButton.pack_forget()
-            self.alertLabel.pack_forget()
-            self.alertsListLabel.pack_forget()
-            self.alertsButton.pack_forget()
-        # ignore exceptions in case labels don't exist
-        except Exception:
-            pass
+        self.clear_frame()
 
         # load the config file and check if the location is set
         config = load_config()
@@ -149,17 +141,21 @@ class App(customtkinter.CTk):
     # clear location config and display input frame
     def show_input(self):
         # unpack any existing frames
-        try:
-            self.weather_frame.pack_forget()
-            self.input_frame.pack_forget()
-            self.hide_alerts()
-            self.hide_detailed_forecast()
-        # ignore exceptions in case the frames don't exist
-        except Exception:
-            pass
+        self.hide_alerts()
+        self.hide_detailed_forecast()
+        self.hide_weather()
+        self.hide_input()
         # add the input frame
         self.input_frame = InputFrame(master=self)
-        self.input_frame.pack(pady=20, padx=20, fill='both', expand=True)     
+        self.input_frame.pack(pady=20, padx=20, fill='both', expand=True)
+
+    # hide the input frame
+    def hide_input(self):
+        try:
+            self.input_frame.pack_forget()
+        # ignore exceptions in case the frame doesn't exist
+        except Exception:
+            pass     
 
     # display weather
     def show_weather(self, city, state):
@@ -174,6 +170,14 @@ class App(customtkinter.CTk):
         # unpack the input frame
         try:
             self.input_frame.pack_forget()
+        # ignore exceptions in case the frame doesn't exist
+        except Exception:
+            pass
+
+    # hide the weather frame
+    def hide_weather(self):
+        try:
+            self.weather_frame.pack_forget()
         # ignore exceptions in case the frame doesn't exist
         except Exception:
             pass
@@ -238,11 +242,12 @@ class App(customtkinter.CTk):
         except Exception:
             pass
 
-    # show the active alert data
+    # show the active alert details
     def show_alerts(self):
-        # remove the existing alert textbox
+        # remove the existing alert textbox and hide button
         try:
             self.alertTextbox.pack_forget()
+            self.alertHideButton.pack_forget()
         # ignore exceptions in case the textbox doesn't exist
         except Exception:
             pass
@@ -253,7 +258,7 @@ class App(customtkinter.CTk):
         # get the alert data
         alerts_data = active_alerts(config)
 
-        # add a textbox to show the alert data
+        # add a textbox to show the alert details
         if len(alerts_data['features']) > 0:
             text = 'Alert info:\n'
             # make a dictionary of alerts that match the county name
@@ -274,14 +279,11 @@ class App(customtkinter.CTk):
             self.alertTextbox.configure(state='disabled')
             self.alertTextbox.pack(pady=12, padx=12)
 
-            # add a button to hide the alerts
+            # add a button to hide the alert details
             self.alertHideButton = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Hide', command=lambda: self.hide_alerts())
             self.alertHideButton.pack(pady=12, padx=12)
 
-        # update textbox periodically
-        self.alertTextbox.after(refresh_ms, self.show_alerts)
-
-    # hide the active alert data
+    # hide the active alert details
     def hide_alerts(self):
         # remove the alert textbox and hide button
         try:
