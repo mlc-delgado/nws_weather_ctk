@@ -44,7 +44,9 @@ class WeatherFrame(customtkinter.CTkFrame):
             self.iconLabel.pack_forget()
             self.button.pack_forget()
             self.forecastLabel.pack_forget()
+            self.detailedButton.pack_forget()
             app.detailedForecastTextbox.pack_forget()
+            app.hideButton.pack_forget()
             self.alertLabel.pack_forget()
             self.alertsListLabel.pack_forget()
         # ignore exceptions in case labels don't exist
@@ -99,8 +101,8 @@ class WeatherFrame(customtkinter.CTkFrame):
                 self.alertsListLabel.after(refresh_ms, self.display_weather)
 
         # add a button to show the detailed forecast
-        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Detailed Forecast', command=lambda: app.show_detailed_forecast())
-        self.button.pack(pady=12, padx=12)
+        self.detailedButton = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Detailed Forecast', command=lambda: app.show_detailed_forecast())
+        self.detailedButton.pack(pady=12, padx=12)
 
         # add a button to update location
         self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Update Location', command=lambda: app.reset_config())
@@ -216,15 +218,15 @@ class App(customtkinter.CTk):
         self.detailedForecastTextbox.after(refresh_ms, self.show_detailed_forecast)
 
         # add a button to hide the detailed forecast
-        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Hide', command=lambda: self.hide_detailed_forecast())
-        self.button.pack(pady=12, padx=12)
+        self.hideButton = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Hide', command=lambda: self.hide_detailed_forecast())
+        self.hideButton.pack(pady=12, padx=12)
 
     # hide the detailed forecast   
     def hide_detailed_forecast(self):
         # remove the detailed forecast textbox and hide button
         try:
             self.detailedForecastTextbox.pack_forget()
-            self.button.pack_forget()
+            self.hidebutton.pack_forget()
         # ignore exceptions in case the textbox or button doesn't exist
         except Exception:
             pass

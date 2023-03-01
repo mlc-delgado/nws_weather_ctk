@@ -2,7 +2,6 @@ import requests
 import os
 import yaml
 import logging
-import re
 
 # set up logger
 logger = logging.getLogger(__name__)
