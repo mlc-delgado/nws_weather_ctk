@@ -49,6 +49,7 @@ class WeatherFrame(customtkinter.CTkFrame):
             app.hideButton.pack_forget()
             self.alertLabel.pack_forget()
             self.alertsListLabel.pack_forget()
+            self.alertsButton.pack_forget()
         # ignore exceptions in case labels don't exist
         except Exception:
             pass
@@ -100,12 +101,16 @@ class WeatherFrame(customtkinter.CTkFrame):
                 self.alertLabel.after(refresh_ms, self.display_weather)
                 self.alertsListLabel.after(refresh_ms, self.display_weather)
 
+                # add a button to show the details of the active alerts
+                self.alertsButton = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Alert Details', command=lambda: app.show_alerts())
+                self.alertsButton.pack(pady=12, padx=12)
+
         # add a button to show the detailed forecast
         self.detailedButton = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Detailed Forecast', command=lambda: app.show_detailed_forecast())
         self.detailedButton.pack(pady=12, padx=12)
 
         # add a button to update location
-        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Update Location', command=lambda: app.reset_config())
+        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Change Location', command=lambda: app.reset_config())
         self.button.pack(pady=12, padx=12)
 
 # define ToplevelWindow class for displaying errors
@@ -143,10 +148,12 @@ class App(customtkinter.CTk):
 
     # clear location config and display input frame
     def show_input(self):
-        # unpack the weather frame and existing input frame
+        # unpack any existing frames
         try:
             self.weather_frame.pack_forget()
             self.input_frame.pack_forget()
+            self.hide_alerts()
+            self.hide_detailed_forecast()
         # ignore exceptions in case the frames don't exist
         except Exception:
             pass
@@ -226,7 +233,60 @@ class App(customtkinter.CTk):
         # remove the detailed forecast textbox and hide button
         try:
             self.detailedForecastTextbox.pack_forget()
-            self.hidebutton.pack_forget()
+            self.hideButton.pack_forget()
+        # ignore exceptions in case the textbox or button doesn't exist
+        except Exception:
+            pass
+
+    # show the active alert data
+    def show_alerts(self):
+        # remove the existing alert textbox
+        try:
+            self.alertTextbox.pack_forget()
+        # ignore exceptions in case the textbox doesn't exist
+        except Exception:
+            pass
+
+        # load the config file
+        config = load_config()
+
+        # get the alert data
+        alerts_data = active_alerts(config)
+
+        # add a textbox to show the alert data
+        if len(alerts_data['features']) > 0:
+            text = 'Alert info:\n'
+            # make a dictionary of alerts that match the county name
+            alert_matches = {}
+            for alert in alerts_data['features']:
+                if config['county'] in alert['properties']['areaDesc']:
+                    # store the alert in a dictionary with the event as the key
+                    alert_matches[alert['properties']['event']] = {
+                        'description': alert['properties']['description'],
+                        'instruction': alert['properties']['instruction']
+                    }
+            # add the alerts to the text
+            for alert in alert_matches:
+                text += 'Description: {description}\nInstruction: {instruction}\n'.format(description=alert_matches[alert]['description'], instruction=alert_matches[alert]['instruction'])
+
+            self.alertTextbox = customtkinter.CTkTextbox(master=self, wrap='word')
+            self.alertTextbox.insert('0.0', text)
+            self.alertTextbox.configure(state='disabled')
+            self.alertTextbox.pack(pady=12, padx=12)
+
+            # add a button to hide the alerts
+            self.alertHideButton = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Hide', command=lambda: self.hide_alerts())
+            self.alertHideButton.pack(pady=12, padx=12)
+
+        # update textbox periodically
+        self.alertTextbox.after(refresh_ms, self.show_alerts)
+
+    # hide the active alert data
+    def hide_alerts(self):
+        # remove the alert textbox and hide button
+        try:
+            self.alertTextbox.pack_forget()
+            self.alertHideButton.pack_forget()
         # ignore exceptions in case the textbox or button doesn't exist
         except Exception:
             pass
