@@ -1,6 +1,6 @@
 import customtkinter
 from config import logger, update, load_config,  clear_config, check_config
-from data import forecast, active_alerts
+from data import hourly_forecast, detailed_forecast, active_alerts
 from icons import get_emoji
 
 # set the frame refresh rate in milliseconds
@@ -44,6 +44,7 @@ class WeatherFrame(customtkinter.CTkFrame):
             self.iconLabel.pack_forget()
             self.button.pack_forget()
             self.forecastLabel.pack_forget()
+            app.detailedForecastTextbox.pack_forget()
             self.alertLabel.pack_forget()
             self.alertsListLabel.pack_forget()
         # ignore exceptions in case labels don't exist
@@ -58,13 +59,13 @@ class WeatherFrame(customtkinter.CTkFrame):
             app.update_location()
             config = load_config()
     
-        # get the forecast and active alerts data
-        forecast_data = forecast(config)
+        # get the hourly forecast and active alerts data
+        forecast_data = hourly_forecast(config)
         alerts_data = active_alerts(config)
 
         # add a label for the current weather icon
         # display the emoji for the forecast
-        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',48), text=get_emoji(forecast_data['properties']['periods'][0]['shortForecast']))
+        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',48), text=get_emoji(forecast_data['properties']['periods'][0]['shortForecast'], forecast_data['properties']['periods'][0]['isDaytime']))
         self.iconLabel.pack(pady=12, padx=12)
 
         # add label to show the current temperature and forecast
@@ -96,10 +97,28 @@ class WeatherFrame(customtkinter.CTkFrame):
                 # update the labels periodically
                 self.alertLabel.after(refresh_ms, self.display_weather)
                 self.alertsListLabel.after(refresh_ms, self.display_weather)
-                
-        # add a button to update location
-        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Update Location', command=lambda: app.show_input())
+
+        # add a button to show the detailed forecast
+        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Detailed Forecast', command=lambda: app.show_detailed_forecast())
         self.button.pack(pady=12, padx=12)
+
+        # add a button to update location
+        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Update Location', command=lambda: app.reset_config())
+        self.button.pack(pady=12, padx=12)
+
+# define ToplevelWindow class for displaying errors
+class ToplevelWindow(customtkinter.CTkToplevel):
+    def __init__(self, *args, **kwargs):
+        # call the parent class constructor
+        super().__init__(*args, **kwargs)
+        
+        self.geometry('400x300')
+
+        self.label = customtkinter.CTklabel(master=self, font=('arial bold', 14), text="Error updating location")
+        self.label.pack(pady=20, padx=20)
+
+    def close(self):
+        self.destroy()
 
 # define the main App class
 class App(customtkinter.CTk):
@@ -122,23 +141,22 @@ class App(customtkinter.CTk):
 
     # clear location config and display input frame
     def show_input(self):
-        # clear the config file
-        clear_config()
-        # unpack the weather frame
+        # unpack the weather frame and existing input frame
         try:
             self.weather_frame.pack_forget()
-        # ignore exceptions in case the frame doesn't exist
+            self.input_frame.pack_forget()
+        # ignore exceptions in case the frames don't exist
         except Exception:
             pass
         # add the input frame
         self.input_frame = InputFrame(master=self)
-        self.input_frame.pack(pady=20, padx=60, fill='both', expand=True)     
+        self.input_frame.pack(pady=20, padx=20, fill='both', expand=True)     
 
     # display weather
     def show_weather(self, city, state):
         # add a frame for weather
         self.weather_frame = WeatherFrame(master=self)
-        self.weather_frame.pack(pady=20, padx=60, fill='both', expand=True)
+        self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.weather_frame.display_weather(city, state)
 
     # set location from input
@@ -158,11 +176,73 @@ class App(customtkinter.CTk):
         # ignore exception when the input frame is not present
         except AttributeError:
             pass
-        # log an error and exit if anything else happens
+        # log an error and display a toplevel window
         except Exception as e:
+            # unpack the weather frame
+            try:
+                self.weather_frame.pack_forget()
+            # ignore exceptions in case the frame doesn't exist
+            except Exception:
+                pass
+            # log the error
             logger.error('Error updating location: {}'.format(e))
-            exit(1)
+            # display a toplevel window
+            app.show_error(error='Error updating location: {}'.format(e))
+            # wait for the window to close
+            self.wait_window(app.toplevel_window)
+            # call show_input to display the input frame
+            self.show_input()
 
+    # show the detailed forecast
+    def show_detailed_forecast(self):
+        # remove the existing detailed forecast textbox
+        try:
+            self.detailedForecastTextbox.pack_forget()
+        # ignore exceptions in case the textbox doesn't exist
+        except Exception:
+            pass
+
+        # get the detailed forecast data
+        forecast_data = detailed_forecast(load_config())
+
+        # add a textbox to show the detailed forecast
+        text = 'Detailed forecast:\n{name}\n{forecast}'.format(name=forecast_data['properties']['periods'][0]['name'], forecast=forecast_data['properties']['periods'][0]['detailedForecast'])
+        self.detailedForecastTextbox = customtkinter.CTkTextbox(master=self, wrap='word')
+        self.detailedForecastTextbox.insert('0.0', text)
+        self.detailedForecastTextbox.configure(state='disabled')
+        self.detailedForecastTextbox.pack(pady=12, padx=12)
+
+        # update textbox periodically
+        self.detailedForecastTextbox.after(refresh_ms, self.show_detailed_forecast)
+
+        # add a button to hide the detailed forecast
+        self.button = customtkinter.CTkButton(master=self, font=('arial bold',14), text='Hide', command=lambda: self.hide_detailed_forecast())
+        self.button.pack(pady=12, padx=12)
+
+    # hide the detailed forecast   
+    def hide_detailed_forecast(self):
+        # remove the detailed forecast textbox and hide button
+        try:
+            self.detailedForecastTextbox.pack_forget()
+            self.button.pack_forget()
+        # ignore exceptions in case the textbox or button doesn't exist
+        except Exception:
+            pass
+
+    # reset the location
+    def reset_config(self):
+        clear_config()
+        self.show_input()
+
+    # show an error message
+    def show_error(self, error):
+        # create the toplevel window
+        self.toplevel_window = customtkinter.CTkToplevel(self)
+        self.toplevel_window.title('Error')
+        self.toplevel_window.label = customtkinter.CTkLabel(self.toplevel_window, font=('arial bold', 14), text=error)
+        self.toplevel_window.label.pack(pady=20, padx=20)
+        # focus on it and update the text
+        self.toplevel_window.focus()
 
 # run the app
 if __name__ == '__main__':

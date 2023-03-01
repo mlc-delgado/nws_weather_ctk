@@ -9,9 +9,12 @@ def load_emoji():
     return emoji_dict
 
 # get the emoji for the weather
-def get_emoji(forecast):
+def get_emoji(forecast, isDayTime):
     forecast = forecast.lower()
     emoji_dict = load_emoji()
+    if not isDayTime:
+        # if it is night time, return the night time emoji
+        return emoji_dict['night']['text']
     # check the keywords for each emoji to see if there is a match in the forecast
     # for each emoji that matches, add it to a dictionary and list the number of matches
     emoji_matches = {}

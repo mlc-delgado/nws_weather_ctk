@@ -2,6 +2,7 @@ import requests
 import os
 import yaml
 import logging
+import re
 
 # set up logger
 logger = logging.getLogger(__name__)
@@ -34,14 +35,18 @@ def check_config(config):
         return False
     else:
         return True
-
-# Update the config file
-def update(city, state):
-    config = {'city': city, 'state': state}
-
+    
+def load_abbreviations():
     # Load the list of state abbreviations from yaml file
     with open(os.path.join(os.path.dirname(__file__), 'state_abbreviations.yaml'), 'r') as f:
-        state_abbreviations = yaml.safe_load(f)
+        abbreviations = yaml.safe_load(f)
+    f.close()
+
+    return abbreviations
+
+# ensure the state is a valid state name or abbreviation    
+def check_state_input(config):
+    state_abbreviations = load_abbreviations()
 
     # Check if the state was provided as full name or abbreviation
 
@@ -53,10 +58,36 @@ def update(city, state):
     if len(config['state']) == 2:
         config['state'] = config['state'].upper()
 
-    # log an error and exit if the state is not a valid state name or abbreviation
+    # log an error and raise exception if the state is not a valid state name or abbreviation
     if config['state'] not in state_abbreviations.values():
-        logger.error('Invalid state provided, please check your location and try again')
-        exit(1)
+        logger.error('Invalid state provided: {}'.format(config['state']))
+        raise Exception('Invalid state provided: {}. please check your location and try again'.format(config['state']))
+
+    return config
+
+def check_city_input(config):
+    # Set the geocoding url from MAPS
+    geocode_url = 'https://geocode.maps.co/search?city={city}&state={state}&country=US'.format(city=config['city'],state=config['state'])
+    # Get a sample geocode and check that it contains a valid combination of city and state
+    geocode_data = requests.get(geocode_url).json()
+    # load the abbreviations
+    state_abbreviations = load_abbreviations()
+    # get the state name from the abbreviations list
+    state_name = [k for k, v in state_abbreviations.items() if v == config['state']][0]
+    # check if the state name is in the display_name field
+    if state_name not in geocode_data[0]['display_name']:
+        logger.error('Invalid city provided: {}'.format(config['city']))
+        raise Exception('Invalid city provided: {}. please check your location and try again'.format(config['city']))
+        
+# Update the config file
+def update(city, state):
+    config = {'city': city, 'state': state}
+
+    # validate the state name or abbreviation
+    config = check_state_input(config)
+
+    # validate the city name
+    check_city_input(config)
 
     # create a city_string from the city that replaces any spaces with plus signs
     city_string = city.replace(' ', '+')
@@ -75,10 +106,10 @@ def update(city, state):
         # Remove " County" from the county if it contains it
         if ' County' in config['county']:
             config['county'] = config['county'].replace(' County', '')
-    # If the geocoding API fails log an error and exit
+    # If the geocoding API fails log an error and raise exception
     except Exception as e:
         logger.error('Error getting geocoding data, please check your location and try again. Error: {}'.format(e))
-        exit(1)
+        raise Exception('Error getting geocoding data, please check your location and try again. Error: {}'.format(e))
 
     # Fetch forecast data from the NWS API
 
@@ -91,10 +122,10 @@ def update(city, state):
         config['office'] = points_data['properties']['gridId']
         config['gridX'] = str(points_data['properties']['gridX'])
         config['gridY'] = str(points_data['properties']['gridY'])
-    # If the points API fails log an error and exit
+    # If the points API fails log an error and raise exception
     except Exception as e:
         logger.error('Error getting points data, please check your location and try again. Error: {}'.format(e))
-        exit(1)
+        raise Exception('Error getting points data, please check your location and try again. Error: {}'.format(e))
 
     # Write the config file with the new data
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:

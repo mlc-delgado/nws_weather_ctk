@@ -8,4 +8,6 @@ Start the application by running main.py.
 
 Once started, simply enter your city name and state, and then click on **Set Location**. The app will use geocoding from MAPS and the NWS API to fetch current forecast data and active alerts for your region. Active alerts will only show if your county name is mentioned in the alert details. Weather data is refreshed every 1 hour. 
 
+Click on **Detailed Forecast** to view a detailed forecast for your region.
+
 To change location click on **Update Location** and enter a new city and state. Location data is cached locally in a config yaml and updated only when the location changes. 
