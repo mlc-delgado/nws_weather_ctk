@@ -3,3 +3,6 @@ pyyaml
 tk
 customtkinter
 emoji
+datetime
+pytz
+tzlocal

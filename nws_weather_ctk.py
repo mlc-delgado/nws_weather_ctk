@@ -2,10 +2,13 @@ import customtkinter
 from config import logger, update, load_config,  clear_config, check_config
 from data import hourly_forecast, detailed_forecast, active_alerts
 from icons import get_emoji
+import datetime
+import pytz
+from tzlocal import get_localzone
 
 # set the frame refresh rate in milliseconds
-# default 1 hour
-refresh_ms = 3600000
+# default 10 minutes
+refresh_ms = 600000
 
 # Set the appearance mode to system theme
 customtkinter.set_appearance_mode('system')
@@ -185,8 +188,9 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
         self.clear_frame()
 
         config = load_config()
+        text = 'No active alerts'
 
-        # add a textbox to show the alert details
+        # check if there are active alerts for the state
         if len(alerts_data['features']) > 0:
             # make a dictionary of alerts that match the county name
             alert_matches = {}
@@ -197,17 +201,17 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
                         'description': alert['properties']['description'],
                         'instruction': alert['properties']['instruction']
                     }
-            # add the alerts to the text
-            if alert_matches != {}:
+            # add the alerts to the text if dictionary is not empty
+            if len(alert_matches) > 0:
                 text = 'Active alerts:\n'
                 for alert in alert_matches:
                     text += 'Description: {description}\nInstruction: {instruction}\n'.format(description=alert_matches[alert]['description'], instruction=alert_matches[alert]['instruction'])
-            else:
-                text = 'No active alerts'
-            self.alertTextbox = customtkinter.CTkTextbox(master=self, wrap='word', fg_color='transparent', font=('arial bold', 14))
-            self.alertTextbox.insert('0.0', text)
-            self.alertTextbox.configure(state='disabled')
-            self.alertTextbox.pack(pady=12, padx=12)
+        
+        # add a textbox to show the alert details
+        self.alertTextbox = customtkinter.CTkTextbox(master=self, wrap='word', fg_color='transparent', font=('arial bold', 14))
+        self.alertTextbox.insert('0.0', text)
+        self.alertTextbox.configure(state='disabled')
+        self.alertTextbox.pack(pady=12, padx=12)
 
 # define the main App class
 class App(customtkinter.CTk):
@@ -236,6 +240,48 @@ class App(customtkinter.CTk):
         # get the active alerts data
         self.active_alerts_data = active_alerts(config)
 
+    # return a possible timezone based on an offset
+    def possible_timezones(self, tz_offset, common_only=True):
+        # set the timezone collection to US timezones
+        timezones = pytz.country_timezones['US']
+        # convert the float hours offset to a timedelta
+        offset_seconds = tz_offset * 3600
+        offset_days = 0
+        if offset_seconds < 0:
+            offset_days = -1
+            offset_seconds += 24 * 3600
+        desired_delta = datetime.timedelta(offset_days, offset_seconds)
+        # Loop through the timezones and find any with matching offsets
+        null_delta = datetime.timedelta(0, 0)
+        results = []
+        for tz_name in timezones:
+            tz = pytz.timezone(tz_name)
+            non_dst_offset = getattr(tz, '_transition_info', [[null_delta]])[-1]
+            if desired_delta == non_dst_offset[0]:
+                results.append(tz_name) 
+        # return the first result
+        return results[0]
+
+    # check local time to determine if forecast is out of sync, updates are published every 1 hour
+    def check_for_updates(self):
+        # use endTime of the current period to determine the timezone of the forecast
+        offset_float = float(self.detailed_forecast_data['properties']['periods'][0]['endTime'][-6:-3])
+        # get the current time in the timezone of the app location
+        app_tz = self.possible_timezones(offset_float)
+        # get the user local time
+        user_tz = get_localzone()
+        local_time = datetime.datetime.now(user_tz)
+        # convert the local time to the timezone of the forecast
+        local_time = local_time.astimezone(pytz.timezone(app_tz))
+        # check the period end time to determine if the forecast is out of sync
+        forecast_endtime = datetime.datetime.strptime(self.detailed_forecast_data['properties']['periods'][0]['endTime'], '%Y-%m-%dT%H:%M:%S%z')
+        if local_time > forecast_endtime:
+            # update the forecast
+            logger.info('Forecast is out of sync, updating...')
+            self.update_forecast_data
+        else:
+            pass
+
     # show the main menu and selected weather frame
     def menu(self, choice=None):
         if choice is None:
@@ -251,8 +297,13 @@ class App(customtkinter.CTk):
         # create a segmented button to select the weather data to display
         self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current Forecast', 'Detailed Forecast', 'Weekly Forecast', 'Active Alerts', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
         self.segmented_button.pack(pady=10, padx=20)
-        # update the forecast data for initial display
+
+        # # periodically update the forecast data
+        # self.segmented_button.after(refresh_ms, self.update_forecast_data)
+
+        # update the forecast data
         self.update_forecast_data()
+
         # show the selected frame
         self.segmented_button_callback(choice)
 
@@ -260,6 +311,8 @@ class App(customtkinter.CTk):
     def segmented_button_callback(self, value=None):
         # hide all frames
         self.hide_all()
+        # check for updates to the forecast data
+        self.check_for_updates()
         if value == 'Current Forecast':
             self.show_weather()
         elif value == 'Detailed Forecast':
@@ -329,7 +382,7 @@ class App(customtkinter.CTk):
         self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.weather_frame.display_weather(forecast_data=self.hourly_forecast_data, alerts_data=self.active_alerts_data)
         # update the frame periodically
-        self.weather_frame.after(refresh_ms, self.update_forecast_data)
+        self.weather_frame.after(refresh_ms, self.check_for_updates)
 
     # hide the weather frame
     def hide_weather(self):
@@ -348,7 +401,7 @@ class App(customtkinter.CTk):
         self.detailed_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.detailed_forecast_frame.show_detailed_forecast(forecast_data=self.detailed_forecast_data)
         # update the frame periodically
-        self.detailed_forecast_frame.after(refresh_ms, self.update_forecast_data)
+        self.detailed_forecast_frame.after(refresh_ms, self.check_for_updates)
 
     # hide detailed forecast   
     def hide_detailed_forecast(self):
@@ -367,7 +420,7 @@ class App(customtkinter.CTk):
         self.weekly_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.weekly_forecast_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
         # update the frame periodically
-        self.weekly_forecast_frame.after(refresh_ms, self.update_forecast_data)
+        self.weekly_forecast_frame.after(refresh_ms, self.check_for_updates)
 
     # hide weekly forecast
     def hide_weekly_forecast(self):
@@ -386,7 +439,7 @@ class App(customtkinter.CTk):
         self.alerts_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.alerts_frame.show_active_alerts(self.active_alerts_data)
         # update the frame periodically
-        self.alerts_frame.after(refresh_ms, self.update_forecast_data)
+        self.alerts_frame.after(refresh_ms, self.check_for_updates)
 
     # hide active alert details
     def hide_alerts(self):
