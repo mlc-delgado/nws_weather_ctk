@@ -2,6 +2,7 @@ import requests
 from config import logger
 import time
 
+# retry delay in seconds
 retry_delay = 5
 
 # get the current forecast

@@ -63,15 +63,11 @@ class WeatherFrame(customtkinter.CTkFrame):
             widget.destroy()
 
     # display the forecast and alerts
-    def display_weather(self):
+    def display_weather(self, forecast_data=None, alerts_data=None):
         self.clear_frame()
 
         # load the config file
         config = load_config()
-    
-        # get the hourly forecast and active alerts data
-        forecast_data = hourly_forecast(config)
-        alerts_data = active_alerts(config)
 
         # add a label for the current weather icon
         # display the emoji for the forecast
@@ -82,9 +78,6 @@ class WeatherFrame(customtkinter.CTkFrame):
         text='Weather for {city}, {state}\nTemperature: {temperature}°F\nForecast: {forecast}\nHumidity: {humidity}%\nWind speed: {wind}'.format(forecast=forecast_data['properties']['periods'][0]['shortForecast'], city=config['city'], state=config['state'], temperature=forecast_data['properties']['periods'][0]['temperature'], humidity=forecast_data['properties']['periods'][0]['relativeHumidity']['value'], wind=forecast_data['properties']['periods'][0]['windSpeed'])
         self.forecastLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text=text)
         self.forecastLabel.pack(pady=12, padx=12)
-
-        # update the label periodically
-        self.forecastLabel.after(refresh_ms, self.display_weather)
 
         # add label to show active alerts if the alert contains the county name
         if len(alerts_data['features']) > 0:
@@ -105,10 +98,6 @@ class WeatherFrame(customtkinter.CTkFrame):
                 self.alertsListLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text='\n'.join(alert_matches))
                 self.alertsListLabel.pack(pady=0, padx=12)
 
-                # update the labels periodically
-                self.alertLabel.after(refresh_ms, self.display_weather)
-                self.alertsListLabel.after(refresh_ms, self.display_weather)
-
 # frame to show the detailed forecast
 class DetailedForecastFrame(customtkinter.CTkFrame):
     def __init__(self, *args, **kwargs):
@@ -120,11 +109,8 @@ class DetailedForecastFrame(customtkinter.CTkFrame):
         for widget in self.winfo_children():
             widget.destroy()
 
-    def show_detailed_forecast(self):
+    def show_detailed_forecast(self, forecast_data=None):
         self.clear_frame()
-
-        # get the detailed forecast data
-        forecast_data = detailed_forecast(load_config())
 
         # add a textbox to show the detailed forecast
         text = 'Detailed forecast:\n{name}\n{forecast}'.format(name=forecast_data['properties']['periods'][0]['name'], forecast=forecast_data['properties']['periods'][0]['detailedForecast'])
@@ -132,9 +118,6 @@ class DetailedForecastFrame(customtkinter.CTkFrame):
         self.detailedForecastTextbox.insert('0.0', text)
         self.detailedForecastTextbox.configure(state='disabled')
         self.detailedForecastTextbox.pack(pady=12, padx=12)
-
-        # update textbox periodically
-        self.detailedForecastTextbox.after(refresh_ms, self.show_detailed_forecast)
 
 # frame to show the daily forecast
 class DailyForecastFrame(customtkinter.CTkFrame):
@@ -159,9 +142,6 @@ class DailyForecastFrame(customtkinter.CTkFrame):
             self.forecastLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text='{name}\nTemperature: {temperature}°F\nForecast: {forecast}\n'.format(name=forecast_data['properties']['periods'][period]['name'], temperature=forecast_data['properties']['periods'][period]['temperature'], forecast=forecast_data['properties']['periods'][period]['shortForecast']))
             self.forecastLabel.pack(pady=12, padx=12)
 
-            # update the label periodically
-            self.forecastLabel.after(refresh_ms, self.show_daily_forecast)
-
 # frame to show the weekly forecast
 class WeeklyForecastFrame(customtkinter.CTkFrame):
     def __init__(self, *args, **kwargs):
@@ -173,17 +153,15 @@ class WeeklyForecastFrame(customtkinter.CTkFrame):
         for widget in self.winfo_children():
             widget.destroy()
 
-    def show_weekly_forecast(self):
+    def show_weekly_forecast(self, forecast_data=None, current=None):
         self.clear_frame()
 
-        # get the detailed forecast data 
-        forecast_data = detailed_forecast(load_config())
         # set a starting var for the column
         column = 0
-        # for each period starting with the second period (index 1)
-        for i in range(1, len(forecast_data['properties']['periods'])):
-            # if the period name is a day of the week
-            if forecast_data['properties']['periods'][i]['name'] in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+        # for each period in the forecast
+        for i in range(0, len(forecast_data['properties']['periods'])):
+            # if the period name is today's current period or a day of the week
+            if forecast_data['properties']['periods'][i]['name'] in [ current, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
                 # create a frame to hold the weather icon and forecast
                 self.daily_forecast_frame = DailyForecastFrame(master=self)
                 self.daily_forecast_frame.grid(row=0, column=column, padx=12, pady=12)
@@ -203,12 +181,10 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
             widget.destroy()
 
     # display the active alerts details
-    def show_active_alerts(self):
+    def show_active_alerts(self, alerts_data=None):
         self.clear_frame()
 
         config = load_config()
-        # get the active alerts data
-        alerts_data = active_alerts(config)
 
         # add a textbox to show the alert details
         if len(alerts_data['features']) > 0:
@@ -233,9 +209,6 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
             self.alertTextbox.configure(state='disabled')
             self.alertTextbox.pack(pady=12, padx=12)
 
-            # update textbox periodically
-            self.alertTextbox.after(refresh_ms, self.show_active_alerts)
-
 # define the main App class
 class App(customtkinter.CTk):
     def __init__(self, *args, **kwargs):
@@ -253,6 +226,17 @@ class App(customtkinter.CTk):
             # if the location is set, show the menu and weather frames
             self.menu()
 
+    # update all forecast, detailed forecast, and alerts data
+    def update_forecast_data(self):
+        config = load_config()
+        # get the hourly forecast data
+        self.hourly_forecast_data = hourly_forecast(config)
+        # get the detailed forecast data
+        self.detailed_forecast_data = detailed_forecast(config)
+        # get the active alerts data
+        self.active_alerts_data = active_alerts(config)
+
+    # show the main menu and selected weather frame
     def menu(self, choice=None):
         if choice is None:
             choice = 'Current Forecast'
@@ -267,10 +251,13 @@ class App(customtkinter.CTk):
         # create a segmented button to select the weather data to display
         self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current Forecast', 'Detailed Forecast', 'Weekly Forecast', 'Active Alerts', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
         self.segmented_button.pack(pady=10, padx=20)
-        # display the selected frame
+        # update the forecast data for initial display
+        self.update_forecast_data()
+        # show the selected frame
         self.segmented_button_callback(choice)
 
-    def segmented_button_callback(self, value):
+    # show the frame for a selected value
+    def segmented_button_callback(self, value=None):
         # hide all frames
         self.hide_all()
         if value == 'Current Forecast':
@@ -284,6 +271,7 @@ class App(customtkinter.CTk):
         elif value == 'Active Alerts':
             self.show_alerts()
 
+    # display input
     def show_input(self, reset=False):
         # clear existing input frame
         self.hide_input()
@@ -303,32 +291,7 @@ class App(customtkinter.CTk):
         self.input_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.input_frame.show_input()
 
-    # hide the input frame
-    def hide_input(self):
-        try:
-            self.input_frame.pack_forget()
-        # ignore exceptions in case the frame doesn't exist
-        except Exception:
-            pass     
-
-    # display weather
-    def show_weather(self):
-        # clear existing weather frame
-        self.hide_weather()
-        # add a frame for weather
-        self.weather_frame = WeatherFrame(master=self)
-        self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.weather_frame.display_weather()
-
-    # hide the weather frame
-    def hide_weather(self):
-        try:
-            self.weather_frame.pack_forget()
-        # ignore exceptions in case the frame doesn't exist
-        except Exception:
-            pass
-
-    # update the location
+    # set the location
     def set_location(self):
         try:
             update(self.input_frame.get_values()[0], self.input_frame.get_values()[1])
@@ -346,18 +309,48 @@ class App(customtkinter.CTk):
             # call show_input to display the input frame
             self.show_input(reset=True)
         else:
-            # call menu to display the menu frame
+            # redirect to the menu and weather frames
             self.menu()
 
+    # hide the input frame
+    def hide_input(self):
+        try:
+            self.input_frame.pack_forget()
+        # ignore exceptions in case the frame doesn't exist
+        except Exception:
+            pass     
+
+    # display weather
+    def show_weather(self):
+        # clear existing weather frame
+        self.hide_weather()
+        # add a frame for weather
+        self.weather_frame = WeatherFrame(master=self)
+        self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
+        self.weather_frame.display_weather(forecast_data=self.hourly_forecast_data, alerts_data=self.active_alerts_data)
+        # update the frame periodically
+        self.weather_frame.after(refresh_ms, self.update_forecast_data)
+
+    # hide the weather frame
+    def hide_weather(self):
+        try:
+            self.weather_frame.pack_forget()
+        # ignore exceptions in case the frame doesn't exist
+        except Exception:
+            pass
+
+    # display detailed forecast
     def show_detailed_forecast(self):
         # clear existing detailed forecast frame
         self.hide_detailed_forecast()
         # add the detailed forecast frame
         self.detailed_forecast_frame = DetailedForecastFrame(master=self)
         self.detailed_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.detailed_forecast_frame.show_detailed_forecast()
+        self.detailed_forecast_frame.show_detailed_forecast(forecast_data=self.detailed_forecast_data)
+        # update the frame periodically
+        self.detailed_forecast_frame.after(refresh_ms, self.update_forecast_data)
 
-    # hide the detailed forecast   
+    # hide detailed forecast   
     def hide_detailed_forecast(self):
         try:
             self.detailed_forecast_frame.pack_forget()
@@ -365,16 +358,18 @@ class App(customtkinter.CTk):
         except Exception:
             pass
 
-    # show the weekly forecast
+    # show weekly forecast
     def show_weekly_forecast(self):
         # clear existing weekly forecast frame
         self.hide_weekly_forecast()
         # add the weekly forecast frame
         self.weekly_forecast_frame = WeeklyForecastFrame(master=self)
         self.weekly_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.weekly_forecast_frame.show_weekly_forecast()
+        self.weekly_forecast_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
+        # update the frame periodically
+        self.weekly_forecast_frame.after(refresh_ms, self.update_forecast_data)
 
-    # hide the weekly forecast
+    # hide weekly forecast
     def hide_weekly_forecast(self):
         try:
             self.weekly_forecast_frame.pack_forget()
@@ -382,16 +377,18 @@ class App(customtkinter.CTk):
         except Exception:
             pass
 
-    # show the active alert details
+    # show active alert details
     def show_alerts(self):
         # clear existing active alerts frame
         self.hide_alerts()
         # add the active alerts frame
         self.alerts_frame = ActiveAlertsFrame(master=self)
         self.alerts_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.alerts_frame.show_active_alerts()
+        self.alerts_frame.show_active_alerts(self.active_alerts_data)
+        # update the frame periodically
+        self.alerts_frame.after(refresh_ms, self.update_forecast_data)
 
-    # hide the active alert details
+    # hide active alert details
     def hide_alerts(self):
         # hide the active alerts frame
         try:
@@ -408,14 +405,14 @@ class App(customtkinter.CTk):
         self.hide_alerts()
         self.hide_input()
 
-    # reset the location
+    # reset location
     def reset_config(self):
         clear_config()
         self.show_input()
 
     # show an error message
     def show_error(self, error):
-        # create the toplevel window
+        # create a toplevel window
         self.toplevel_window = customtkinter.CTkToplevel(self)
         self.toplevel_window.title('Error')
         self.toplevel_window.label = customtkinter.CTkLabel(self.toplevel_window, font=('arial bold', 14), text=error)

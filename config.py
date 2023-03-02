@@ -12,8 +12,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # set the logging file
 logging.basicConfig(filename='nws_weather_ctk.log', filemode='w')
 
-retry_delay = 5
-
 # load the config file
 def load_config():
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'r') as f:
@@ -62,6 +60,7 @@ def check_state_input(config):
 
     return config
 
+# ensure the city is a valid city name
 def check_city_input(config):
     # Set the geocoding url from MAPS
     geocode_url = 'https://geocode.maps.co/search?city={city}&state={state}&country=US'.format(city=config['city'],state=config['state'])
