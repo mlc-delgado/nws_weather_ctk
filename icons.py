@@ -1,17 +1,16 @@
 import yaml
 import os
 
-# load the emoji dictionary
-def load_emoji():
-    with open(os.path.join(os.path.dirname(__file__), 'emojis.yaml'), 'r') as f:
-        emoji_dict = yaml.safe_load(f)
-    f.close()
-    return emoji_dict
+def load_emojis():
+    # Load the list of emojis from yaml file
+    with open(os.path.join(os.path.dirname(__file__), 'data.yaml'), 'r') as f:
+        emojis = yaml.safe_load(f)['emojis']
+    return emojis
 
 # get the emoji for the weather
 def get_emoji(forecast, isDayTime):
     forecast = forecast.lower()
-    emoji_dict = load_emoji()
+    emoji_dict = load_emojis()
     if not isDayTime:
         # if it is night time, return the night time emoji
         return emoji_dict['night']['text']

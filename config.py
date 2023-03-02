@@ -37,10 +37,8 @@ def check_config(config):
     
 def load_abbreviations():
     # Load the list of state abbreviations from yaml file
-    with open(os.path.join(os.path.dirname(__file__), 'state_abbreviations.yaml'), 'r') as f:
-        abbreviations = yaml.safe_load(f)
-    f.close()
-
+    with open(os.path.join(os.path.dirname(__file__), 'data.yaml'), 'r') as f:
+        abbreviations = yaml.safe_load(f)['states']
     return abbreviations
 
 # ensure the state is a valid state name or abbreviation    
