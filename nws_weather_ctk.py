@@ -105,13 +105,14 @@ class App(customtkinter.CTk):
         # unpack the segmented button if it exists
         try:
             self.segmented_button.pack_forget()
-        # create if the segmented button does not exist
+        # ignore the error if the segmented button does not exist
         except Exception:
-            # set a default value for the segmented button
-            segmented_button_var = customtkinter.StringVar(value=choice)
-            # create a segmented button to select the weather data to display
-            self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current', 'Hourly', '7-Day', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
-            self.segmented_button.pack(pady=10, padx=20)
+            pass
+        # set a default value for the segmented button
+        segmented_button_var = customtkinter.StringVar(value=choice)
+        # create a segmented button to select the weather data to display
+        self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current', 'Hourly', '7-Day', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
+        self.segmented_button.pack(pady=10, padx=20)
 
         # update the forecast data
         self.update_forecast_data()
@@ -157,7 +158,7 @@ class App(customtkinter.CTk):
             update(self.current_frame.get_values()[0], self.current_frame.get_values()[1])
         # ignore exception when the input frame is not present
         except AttributeError:
-            pass
+            self.menu()
         # log an error and display a toplevel window
         except Exception as e:
             error_text = 'Error updating location: {}'.format(e)
