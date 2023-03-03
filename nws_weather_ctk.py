@@ -63,6 +63,7 @@ class App(customtkinter.CTk):
         # load the config file and check if the location is set
         if not check_config(load_config()):
             # if the location is not set, prompt for input
+            self.hide_all()
             self.show_input()
         else:
             # if the location is set, show the menu and weather frames
@@ -85,13 +86,18 @@ class App(customtkinter.CTk):
             current_detailed_forecast = detailed_forecast(load_config())
             current_temp = current_detailed_forecast['properties']['periods'][0]['temperature']
             current_short_forecast = current_detailed_forecast['properties']['periods'][0]['shortForecast']
-        # igore the exception if the forecast data is not available
+        # return false if the forecast data is not available
         except:
-            pass
+            return False
         else:
             if current_temp != self.detailed_forecast_data['properties']['periods'][0]['temperature'] or current_short_forecast != self.detailed_forecast_data['properties']['periods'][0]['shortForecast']:
                 # update the forecast
                 self.update_forecast_data()
+                # return true if the forecast data was updated
+                return True
+            else:
+                # return true if the forecast data was not updated
+                return True
 
     # show the main menu and selected weather frame
     def menu(self, choice=None):
@@ -100,14 +106,13 @@ class App(customtkinter.CTk):
         # unpack the segmented button if it exists
         try:
             self.segmented_button.pack_forget()
-        # ignore the error if the segmented button does not exist
-        except:
-            pass
-        # set a default value for the segmented button
-        segmented_button_var = customtkinter.StringVar(value=choice)
-        # create a segmented button to select the weather data to display
-        self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current Conditions', '7-Day Forecast', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
-        self.segmented_button.pack(pady=10, padx=20)
+        # create if the segmented button does not exist
+        except Exception:
+            # set a default value for the segmented button
+            segmented_button_var = customtkinter.StringVar(value=choice)
+            # create a segmented button to select the weather data to display
+            self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current Conditions', '7-Day Forecast', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
+            self.segmented_button.pack(pady=10, padx=20)
 
         # update the forecast data
         self.update_forecast_data()
@@ -119,8 +124,6 @@ class App(customtkinter.CTk):
     def segmented_button_callback(self, value=None):
         # hide all frames
         self.hide_all()
-        # check for updates to the forecast data
-        self.check_for_updates()
         if value == 'Current Conditions':
             self.show_weather()
         elif value == '7-Day Forecast':
@@ -130,8 +133,6 @@ class App(customtkinter.CTk):
 
     # display input
     def show_input(self, reset=False):
-        # clear existing input frame
-        self.hide_input()
         # reset the config file if requested
         if reset:
             clear_config()
@@ -141,12 +142,12 @@ class App(customtkinter.CTk):
             # ignore the error if the segmented button does not exist
             except:
                 pass
-            # hide all other frames
-            self.hide_all()
         # add the input frame
         self.input_frame = InputFrame(master=self)
         self.input_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.input_frame.show_input()
+        # refresh the frame periodically
+        self.input_frame.after(refresh_ms, self.segmented_button_callback, 'Location')
 
     # set the location
     def set_location(self):
@@ -167,63 +168,48 @@ class App(customtkinter.CTk):
             self.show_input(reset=True)
         else:
             # redirect to the menu and weather frames
-            self.menu()
-
-    # hide the input frame
-    def hide_input(self):
-        try:
-            self.input_frame.pack_forget()
-        # ignore exceptions in case the frame doesn't exist
-        except Exception:
-            pass     
+            self.menu()  
 
     # display weather
     def show_weather(self):
-        # clear existing frames
-        self.hide_all()
-        # check for updates
-        self.check_for_updates()
-        # add a frame for weather
-        self.weather_frame = WeatherFrame(master=self)
-        self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.weather_frame.display_weather(hourly_forecast_data=self.hourly_forecast_data, detailed_forecast_data=self.detailed_forecast_data, alerts_data=self.active_alerts_data)
-        # update the frame periodically
-        self.weather_frame.after(refresh_ms, self.show_weather)
-
-    # hide the weather frame
-    def hide_weather(self):
-        try:
-            self.weather_frame.pack_forget()
-        # ignore exceptions in case the frame doesn't exist
-        except Exception:
+        if self.check_for_updates():
+            # add a frame for weather
+            self.weather_frame = WeatherFrame(master=self)
+            # pack the weather frame
+            self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
+            self.weather_frame.display_weather(hourly_forecast_data=self.hourly_forecast_data, detailed_forecast_data=self.detailed_forecast_data, alerts_data=self.active_alerts_data)
+            # update the frame periodically
+            self.weather_frame.after(refresh_ms, self.segmented_button_callback, 'Current Conditions')
+        else:
             pass
 
     # show weekly forecast
     def show_weekly_forecast(self):
-        # clear existing frames
-        self.hide_all()
-        # check for updates
-        self.check_for_updates()
-        # add the weekly forecast frame
-        self.weekly_forecast_frame = WeeklyForecastFrame(master=self)
-        self.weekly_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.weekly_forecast_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
-        # update the frame periodically
-        self.weekly_forecast_frame.after(refresh_ms, self.show_weekly_forecast)
-
-    # hide weekly forecast
-    def hide_weekly_forecast(self):
-        try:
-            self.weekly_forecast_frame.pack_forget()
-        # ignore exceptions in case the frame doesn't exist
-        except Exception:
+        if self.check_for_updates():
+            # add the weekly forecast frame
+            self.weekly_forecast_frame = WeeklyForecastFrame(master=self)
+            # pack the weekly forecast frame
+            self.weekly_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
+            self.weekly_forecast_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
+            # update the frame periodically
+            self.weekly_forecast_frame.after(refresh_ms, self.segmented_button_callback, '7-Day Forecast')
+        else:
             pass
 
     # hide all frames
     def hide_all(self):
-        self.hide_weather()
-        self.hide_weekly_forecast()
-        self.hide_input()
+        try:
+            self.weather_frame.pack_forget()
+        except Exception:
+            pass
+        try:
+            self.weekly_forecast_frame.pack_forget()
+        except Exception:
+            pass
+        try:
+            self.input_frame.pack_forget()
+        except Exception:
+            pass
 
     # show an error message
     def show_error(self, error):

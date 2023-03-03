@@ -3,3 +3,4 @@ pyyaml
 tk
 customtkinter
 emoji
+tzlocal

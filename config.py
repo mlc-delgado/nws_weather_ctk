@@ -2,6 +2,8 @@ import requests
 import os
 import yaml
 import logging
+import datetime
+from tzlocal import get_localzone
 
 # set up logger
 logger = logging.getLogger(__name__)
@@ -127,3 +129,46 @@ def update(city, state):
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
         yaml.dump(config, f)
     f.close()
+
+# check if the forecast is for the selected day of the week
+def is_weekday(start_time, day_of_week):
+        # convert the forecast start time to a datetime object
+        forecast_starttime = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%S%z')
+        if forecast_starttime.weekday() == day_of_week:
+            return True
+        else:
+            return False
+
+# get the dates of today and the next 6 days
+def get_week():
+    # get the current date
+    today = datetime.datetime.now(get_localzone())
+    # get the dates of the next 6 days
+    dates = []
+    for i in range(0, 7):
+        dates.append(today + datetime.timedelta(days=i))
+    # convert the dates into a list of strings in the format 'YYYY-MM-DD'
+    dates = [date.strftime('%Y-%m-%d') for date in dates]
+    return dates
+
+# return the day of week integer from a day of the week string
+def get_day_of_week(day_of_week):
+    # convert the day of the week string to a day of the week integer
+    if day_of_week == 'Monday':
+        return 0
+    elif day_of_week == 'Tuesday':
+        return 1
+    elif day_of_week == 'Wednesday':
+        return 2
+    elif day_of_week == 'Thursday':
+        return 3
+    elif day_of_week == 'Friday':
+        return 4
+    elif day_of_week == 'Saturday':
+        return 5
+    elif day_of_week == 'Sunday':
+        return 6
+    elif day_of_week == 'Today':
+        return datetime.datetime.now(get_localzone()).weekday()
+    else:
+        return None

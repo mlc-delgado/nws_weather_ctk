@@ -1,5 +1,5 @@
 import customtkinter
-from config import load_config
+from config import load_config, is_weekday, get_day_of_week, get_week
 from icons import get_emoji
 
 # frame to show the current forecast and alerts
@@ -38,7 +38,7 @@ class WeatherFrame(customtkinter.CTkFrame):
 
         self.frame1 = IconFrame(master=self)
         self.frame1.grid(row=0, column=0, padx=12, pady=12)
-        self.frame1.show_icon(hourly_forecast_data)
+        self.frame1.show_icon(hourly_forecast_data,detailed_forecast_data)
 
         self.frame2 = HourlyForecastFrame(master=self)
         self.frame2.grid(row=0, column=1, padx=12, pady=12)
@@ -124,7 +124,7 @@ class IconFrame(customtkinter.CTkFrame):
         for widget in self.winfo_children():
             widget.destroy()
 
-    def show_icon(self, forecast_data=None):
+    def show_icon(self, forecast_data=None, detailed_forecast_data=None):
         self.clear_frame()
         # add a label for the current weather icon
         # display the emoji for the forecast
@@ -132,9 +132,33 @@ class IconFrame(customtkinter.CTkFrame):
         self.iconLabel.pack(pady=2, padx=12)
         # load the config file
         config = load_config()
+        # make a list of all temperatures throughout the day
+        temperatures = []
+        # add the current temperature to the list
+        temperatures.append(forecast_data['properties']['periods'][0]['temperature'])
+        # for each period startTime that matches today's date
+        for period in detailed_forecast_data['properties']['periods']:
+            # if the startTime is in the list of dates in get_week()
+            for date in get_week():
+                if date in period['startTime']:
+                    # if the startTime matches today's day of week
+                    if is_weekday(period['startTime'], get_day_of_week('Today')):
+                        # append the matching temperature to the list
+                        temperatures.append(period['temperature'])
+        # get the high and low temperatures
+        high = max(temperatures)
+        low = min(temperatures)
+        # omit the high temperature if it is the same as the low temperature
+        if high == low:
+            high_low_text = 'Low: {low}°F'.format(low=low)
+        else:
+            high_low_text = 'High: {high}°F Low: {low}°F'.format( high=high, low=low)
         # add a label for the temperature
         self.temperatureLabel = customtkinter.CTkLabel(master=self, font=('arial bold',20), text='{temperature}°F'.format(temperature=forecast_data['properties']['periods'][0]['temperature']))
         self.temperatureLabel.pack(pady=2, padx=12)
+        # add a label for the high and low temperatures
+        self.highLowLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text=high_low_text)
+        self.highLowLabel.pack(pady=0, padx=12)
         # add a label for the location
         self.locationLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text='{city}, {state}\n{forecast}'.format(city=config['city'], state=config['state'], forecast=forecast_data['properties']['periods'][0]['shortForecast']))
         self.locationLabel.pack(pady=12, padx=12)
