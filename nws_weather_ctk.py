@@ -60,10 +60,12 @@ class App(customtkinter.CTk):
         # set the window title
         self.title('NWS Weather CTk')
 
+        self.currentFrame = None
+
         # load the config file and check if the location is set
         if not check_config(load_config()):
             # if the location is not set, prompt for input
-            self.hide_all()
+            self.hide_current()
             self.show_input()
         else:
             # if the location is set, show the menu and weather frames
@@ -87,17 +89,13 @@ class App(customtkinter.CTk):
             current_temp = current_detailed_forecast['properties']['periods'][0]['temperature']
             current_short_forecast = current_detailed_forecast['properties']['periods'][0]['shortForecast']
         # return false if the forecast data is not available
-        except:
-            return False
+        except Exception as e:
+            raise e
+        if current_temp != self.detailed_forecast_data['properties']['periods'][0]['temperature'] or current_short_forecast != self.detailed_forecast_data['properties']['periods'][0]['shortForecast']:
+            # update the forecast
+            self.update_forecast_data()
         else:
-            if current_temp != self.detailed_forecast_data['properties']['periods'][0]['temperature'] or current_short_forecast != self.detailed_forecast_data['properties']['periods'][0]['shortForecast']:
-                # update the forecast
-                self.update_forecast_data()
-                # return true if the forecast data was updated
-                return True
-            else:
-                # return true if the forecast data was not updated
-                return True
+            pass
 
     # show the main menu and selected weather frame
     def menu(self, choice=None):
@@ -122,8 +120,8 @@ class App(customtkinter.CTk):
 
     # show the frame for a selected value
     def segmented_button_callback(self, value=None):
-        # hide all frames
-        self.hide_all()
+        # hide the current frame
+        self.hide_current()
         if value == 'Current Conditions':
             self.show_weather()
         elif value == '7-Day Forecast':
@@ -133,6 +131,7 @@ class App(customtkinter.CTk):
 
     # display input
     def show_input(self, reset=False):
+        self.hide_current()
         # reset the config file if requested
         if reset:
             clear_config()
@@ -140,30 +139,27 @@ class App(customtkinter.CTk):
             try:
                 self.segmented_button.pack_forget()
             # ignore the error if the segmented button does not exist
-            except:
+            except Exception:
                 pass
         # add the input frame
-        self.input_frame = InputFrame(master=self)
-        self.input_frame.pack(pady=20, padx=20, fill='both', expand=True)
-        self.input_frame.show_input()
+        self.current_frame = InputFrame(master=self)
+        self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
+        self.current_frame.show_input()
         # refresh the frame periodically
-        self.input_frame.after(refresh_ms, self.segmented_button_callback, 'Location')
+        self.current_frame.after(refresh_ms, self.show_input)
 
     # set the location
     def set_location(self):
         try:
-            update(self.input_frame.get_values()[0], self.input_frame.get_values()[1])
+            update(self.current_frame.get_values()[0], self.current_frame.get_values()[1])
         # ignore exception when the input frame is not present
         except AttributeError:
             pass
         # log an error and display a toplevel window
         except Exception as e:
-            # log the error
-            logger.error('Error updating location: {}'.format(e))
+            error_text = 'Error updating location: {}'.format(e)
             # display a toplevel window
-            self.show_error(error='Error updating location: {}'.format(e))
-            # wait for the window to close
-            self.wait_window(self.toplevel_window)
+            self.show_error(error=error_text)
             # call show_input to display the input frame
             self.show_input(reset=True)
         else:
@@ -172,47 +168,52 @@ class App(customtkinter.CTk):
 
     # display weather
     def show_weather(self):
-        if self.check_for_updates():
+        self.hide_current()
+        try:
+            self.check_for_updates()
             # add a frame for weather
-            self.weather_frame = WeatherFrame(master=self)
+            self.current_frame = WeatherFrame(master=self)
             # pack the weather frame
-            self.weather_frame.pack(pady=20, padx=20, fill='both', expand=True)
-            self.weather_frame.display_weather(hourly_forecast_data=self.hourly_forecast_data, detailed_forecast_data=self.detailed_forecast_data, alerts_data=self.active_alerts_data)
+            self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
+            self.current_frame.display_weather(hourly_forecast_data=self.hourly_forecast_data, detailed_forecast_data=self.detailed_forecast_data, alerts_data=self.active_alerts_data)
             # update the frame periodically
-            self.weather_frame.after(refresh_ms, self.segmented_button_callback, 'Current Conditions')
-        else:
-            pass
+            self.current_frame.after(refresh_ms, self.show_weather)
+        except Exception as e:
+            error_text = 'Error updating weather data: {}'.format(e)
+            # display a toplevel window
+            self.show_error(error=error_text)
+            # reload the current frame
+            self.segmented_button_callback(self.segmented_button.cget('variable'))
 
     # show weekly forecast
     def show_weekly_forecast(self):
-        if self.check_for_updates():
+        self.hide_current()
+        try:
+            self.check_for_updates()
             # add the weekly forecast frame
-            self.weekly_forecast_frame = WeeklyForecastFrame(master=self)
+            self.current_frame = WeeklyForecastFrame(master=self)
             # pack the weekly forecast frame
-            self.weekly_forecast_frame.pack(pady=20, padx=20, fill='both', expand=True)
-            self.weekly_forecast_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
+            self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
+            self.current_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
             # update the frame periodically
-            self.weekly_forecast_frame.after(refresh_ms, self.segmented_button_callback, '7-Day Forecast')
-        else:
-            pass
+            self.current_frame.after(refresh_ms, self.show_weekly_forecast)
+        except Exception as e:
+            error_text = 'Error updating weather data: {}'.format(e)
+            # display a toplevel window
+            self.show_error(error=error_text)
+            # reload the current frame
+            self.segmented_button_callback(self.segmented_button.cget('variable'))
 
-    # hide all frames
-    def hide_all(self):
+    # hide the current frame
+    def hide_current(self):
         try:
-            self.weather_frame.pack_forget()
-        except Exception:
-            pass
-        try:
-            self.weekly_forecast_frame.pack_forget()
-        except Exception:
-            pass
-        try:
-            self.input_frame.pack_forget()
+            self.current_frame.pack_forget()
         except Exception:
             pass
 
     # show an error message
     def show_error(self, error):
+        logger.error(f'{error}')
         # create a toplevel window
         self.toplevel_window = customtkinter.CTkToplevel(self)
         self.toplevel_window.title('Error')
@@ -220,6 +221,8 @@ class App(customtkinter.CTk):
         self.toplevel_window.label.pack(pady=20, padx=20)
         # focus on it and update the text
         self.toplevel_window.focus()
+        # wait for the window to close
+        self.wait_window(self.toplevel_window)
 
 # run the app
 if __name__ == '__main__':
