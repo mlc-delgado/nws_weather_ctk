@@ -1,7 +1,8 @@
 import customtkinter
 from config import logger, update, load_config,  clear_config, check_config
 from data import hourly_forecast, detailed_forecast, active_alerts
-from frames import WeatherFrame, WeeklyForecastFrame
+from frames import WeatherFrame, WeeklyForecastFrame, TemperatureGraphFrame
+import sys
 
 # set the frame refresh rate in milliseconds
 # default 10 minutes
@@ -100,7 +101,7 @@ class App(customtkinter.CTk):
     # show the main menu and selected weather frame
     def menu(self, choice=None):
         if choice is None:
-            choice = 'Current Conditions'
+            choice = 'Current'
         # unpack the segmented button if it exists
         try:
             self.segmented_button.pack_forget()
@@ -109,7 +110,7 @@ class App(customtkinter.CTk):
             # set a default value for the segmented button
             segmented_button_var = customtkinter.StringVar(value=choice)
             # create a segmented button to select the weather data to display
-            self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current Conditions', '7-Day Forecast', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
+            self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current', 'Hourly', '7-Day', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
             self.segmented_button.pack(pady=10, padx=20)
 
         # update the forecast data
@@ -122,12 +123,14 @@ class App(customtkinter.CTk):
     def segmented_button_callback(self, value=None):
         # hide the current frame
         self.hide_current()
-        if value == 'Current Conditions':
+        if value == 'Current':
             self.show_weather()
-        elif value == '7-Day Forecast':
+        elif value == '7-Day':
             self.show_weekly_forecast()
         elif value == 'Location':
             self.show_input()
+        elif value == 'Hourly':
+            self.show_hourly_temperature()
 
     # display input
     def show_input(self, reset=False):
@@ -204,6 +207,25 @@ class App(customtkinter.CTk):
             # reload the current frame
             self.segmented_button_callback(self.segmented_button.cget('variable'))
 
+    # show the hourly temperature forecast
+    def show_hourly_temperature(self):
+        self.hide_current()
+        try:
+            self.check_for_updates()
+            # add the temperature forecast frame
+            self.current_frame = TemperatureGraphFrame(master=self)
+            # pack the temperature forecast frame
+            self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
+            self.current_frame.show_hourly_graph(forecast_data=self.hourly_forecast_data)
+            # update the frame periodically
+            self.current_frame.after(refresh_ms, self.show_hourly_temperature)
+        except Exception as e:
+            error_text = 'Error updating weather data: {}'.format(e)
+            # display a toplevel window
+            self.show_error(error=error_text)
+            # reload the current frame
+            self.segmented_button_callback(self.segmented_button.cget('variable'))
+
     # hide the current frame
     def hide_current(self):
         try:
@@ -226,5 +248,11 @@ class App(customtkinter.CTk):
 
 # run the app
 if __name__ == '__main__':
-    app = App()
-    app.mainloop()
+    try:
+        app = App()
+        app.protocol("WM_DELETE_WINDOW", sys.exit)
+        app.mainloop()
+    except KeyboardInterrupt:
+        sys.exit()
+    except EOFError:
+        sys.exit()

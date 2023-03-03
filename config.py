@@ -2,8 +2,9 @@ import requests
 import os
 import yaml
 import logging
-import datetime
+import datetime as dt
 from tzlocal import get_localzone
+import pytz
 
 # set up logger
 logger = logging.getLogger(__name__)
@@ -133,7 +134,7 @@ def update(city, state):
 # check if the forecast is for the selected day of the week
 def is_weekday(start_time, day_of_week):
         # convert the forecast start time to a datetime object
-        forecast_starttime = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%S%z')
+        forecast_starttime = dt.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%S%z')
         if forecast_starttime.weekday() == day_of_week:
             return True
         else:
@@ -142,11 +143,11 @@ def is_weekday(start_time, day_of_week):
 # get the dates of today and the next 6 days
 def get_week():
     # get the current date
-    today = datetime.datetime.now(get_localzone())
+    today = dt.datetime.now(get_localzone())
     # get the dates of the next 6 days
     dates = []
     for i in range(0, 7):
-        dates.append(today + datetime.timedelta(days=i))
+        dates.append(today + dt.timedelta(days=i))
     # convert the dates into a list of strings in the format 'YYYY-MM-DD'
     dates = [date.strftime('%Y-%m-%d') for date in dates]
     return dates
@@ -169,6 +170,6 @@ def get_day_of_week(day_of_week):
     elif day_of_week == 'Sunday':
         return 6
     elif day_of_week == 'Today':
-        return datetime.datetime.now(get_localzone()).weekday()
+        return dt.datetime.now(get_localzone()).weekday()
     else:
         return None

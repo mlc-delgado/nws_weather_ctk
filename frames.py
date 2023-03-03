@@ -1,6 +1,10 @@
 import customtkinter
 from config import load_config, is_weekday, get_day_of_week, get_week
 from icons import get_emoji
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.dates as mdates
+import pandas as pd
+import datetime as dt
 
 # frame to show the current forecast and alerts
 class WeatherFrame(customtkinter.CTkFrame):
@@ -300,3 +304,81 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
 
         # pack the show button by default
         self.showButton.pack(pady=12, padx=12)
+
+# frame to show temperature graph
+class TemperatureGraphFrame(customtkinter.CTkFrame):
+    def __init__(self, *args, **kwargs):
+        # call the parent class constructor
+        super().__init__(*args, **kwargs)
+
+    def clear_frame(self):
+        # clear the frame
+        for widget in self.winfo_children():
+            widget.destroy()
+
+    def build_graph(self, x_title=None, x_axis_labels=None, y_axis_labels=None, x_size=None, y_size=None, locator=None):
+        df = pd.DataFrame({x_title: x_axis_labels, '°F': y_axis_labels})
+
+        ax = df.plot(x=x_title, y='°F', kind='line', linestyle='dashed', marker='o', color='blue')
+
+        # set locator on the x axis
+        if locator == 'day':
+            ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+        elif locator == 'hour':
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+        # set the figure size
+        fig = ax.get_figure()
+        fig.set_size_inches(x_size, y_size)
+
+        # create the canvas to show the graph
+        canvas = FigureCanvasTkAgg(fig, master=self)
+        canvas.draw()
+        canvas.get_tk_widget().pack(pady=12, padx=12, fill='both', expand=True)
+    
+    # show the daily temperature graph
+    def show_daily_graph(self, forecast_data=None):
+        self.clear_frame()
+
+        # add a label for the temperature graph title
+        self.titleLabel = customtkinter.CTkLabel(master=self, font=('arial bold', 14), text='Temperature Forecast')
+        self.titleLabel.pack(pady=12, padx=12)
+
+        # create the x axis and y axis values for startTime of each period
+        x_axis_labels = []
+        y_axis_labels = []
+        for i in range(0, len(forecast_data['properties']['periods'])):
+            # get startTime for each period
+            startTime = forecast_data['properties']['periods'][i]['startTime']
+            # convert the startTime to a datetime object
+            startTime = dt.datetime.strptime(startTime, '%Y-%m-%dT%H:%M:%S%z')
+            # append the startTime to the x axis labels
+            x_axis_labels.append(startTime)
+            # append the temperature for each period to the y axis labels
+            y_axis_labels.append(int(forecast_data['properties']['periods'][i]['temperature']))            
+
+        # build the graph
+        self.build_graph(x_title='Day', x_axis_labels=x_axis_labels, y_axis_labels=y_axis_labels, x_size=14, y_size=5, locator='day')
+
+    def show_hourly_graph(self, forecast_data=None):
+        self.clear_frame()
+
+        # add a label for the temperature graph title
+        self.titleLabel = customtkinter.CTkLabel(master=self, font=('arial bold', 14), text='Temperature Forecast')
+        self.titleLabel.pack(pady=12, padx=12)
+
+        # create the x axis and y axis values for startTime of each period
+        x_axis_labels = []
+        y_axis_labels = []
+        # for 24 periods
+        for i in range(0, 24):
+            # get startTime for each period
+            startTime = forecast_data['properties']['periods'][i]['startTime']
+            # convert the startTime to a datetime object
+            startTime = dt.datetime.strptime(startTime, '%Y-%m-%dT%H:%M:%S%z')
+            # append the startTime to the x axis labels
+            x_axis_labels.append(startTime)
+            # append the temperature for each period to the y axis labels
+            y_axis_labels.append(int(forecast_data['properties']['periods'][i]['temperature']))
+
+        # build the graph
+        self.build_graph(x_title='Hour', x_axis_labels=x_axis_labels, y_axis_labels=y_axis_labels, x_size=14, y_size=5, locator='hour')

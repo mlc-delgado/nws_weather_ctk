@@ -4,3 +4,4 @@ tk
 customtkinter
 emoji
 tzlocal
+matplotlib
