@@ -4,7 +4,6 @@ import yaml
 import logging
 import datetime as dt
 from tzlocal import get_localzone
-import pytz
 
 # set up logger
 logger = logging.getLogger(__name__)
@@ -14,6 +13,10 @@ logging.basicConfig(level=logging.INFO)
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # set the logging file
 logging.basicConfig(filename='nws_weather_ctk.log', filemode='w')
+
+# set the frame refresh rate in milliseconds
+# default 10 minutes 
+refresh_ms = 600000
 
 # load the config file
 def load_config():

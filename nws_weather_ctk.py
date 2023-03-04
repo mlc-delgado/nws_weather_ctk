@@ -1,12 +1,8 @@
 import customtkinter
-from config import logger, update, load_config,  clear_config, check_config
+from config import logger, update, load_config,  clear_config, check_config, refresh_ms
 from data import hourly_forecast, detailed_forecast, active_alerts
 from frames import WeatherFrame, WeeklyForecastFrame, TemperatureGraphFrame
 import sys
-
-# set the frame refresh rate in milliseconds
-# default 10 minutes
-refresh_ms = 600000
 
 # Set the appearance mode to system theme
 customtkinter.set_appearance_mode('system')
@@ -24,33 +20,42 @@ class InputFrame(customtkinter.CTkFrame):
 
     # display the input boxes
     def show_input(self):
+        # set the placeholder texts
+        self.refresh()
         # clear the frame
         self.clear_frame()
-        # load the config and check if location has been set
-        config = load_config()
-        if check_config(config):
-            # set the placeholder text to the current location
-            placeholder_city = config['city']
-            placeholder_state = config['state']
-        else:
-            # set the placeholder text to the default location
-            placeholder_city = 'City'
-            placeholder_state = 'State'
-        
         # provide input boxes for city and state
-        self.entry1 = customtkinter.CTkEntry(master=self, font=('arial bold', 14),  placeholder_text=placeholder_city)
+        self.entry1 = customtkinter.CTkEntry(master=self, font=('arial bold', 14),  placeholder_text=self.placeholder_city)
         self.entry1.pack(pady=12, padx=12)
 
-        self.entry2 = customtkinter.CTkEntry(master=self, font=('arial bold', 14), placeholder_text=placeholder_state)
+        self.entry2 = customtkinter.CTkEntry(master=self, font=('arial bold', 14), placeholder_text=self.placeholder_state)
         self.entry2.pack(pady=12, padx=12)
 
         # add button to set location
         self.button = customtkinter.CTkButton(master=self, font=('arial bold', 14), text='Set Location', command=lambda: app.set_location())
         self.button.pack(pady=12, padx=12)
 
+    # refresh the placeholder texts
+    def refresh(self):
+        # load the config and check if location has been set
+        config = load_config()
+        if check_config(config):
+            # set the placeholder text to the current location
+            self.placeholder_city = config['city']
+            self.placeholder_state = config['state']
+        else:
+            # set the placeholder text to the default location
+            self.placeholder_city = 'City'
+            self.placeholder_state = 'State'
+
     # return the values of the input boxes
     def get_values(self):
         return self.entry1.get(), self.entry2.get()
+    
+    def update(self):
+        self.refresh()
+        self.entry1.configure(placeholder_text=self.placeholder_city)
+        self.entry2.configure(placeholder_text=self.placeholder_state)
 
 # define the main App class
 class App(customtkinter.CTk):
@@ -127,7 +132,7 @@ class App(customtkinter.CTk):
         if value == 'Current':
             self.show_weather()
         elif value == '7-Day':
-            self.show_weekly_forecast()
+            self.show_7day_forecast()
         elif value == 'Location':
             self.show_input()
         elif value == 'Hourly':
@@ -150,7 +155,7 @@ class App(customtkinter.CTk):
         self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
         self.current_frame.show_input()
         # refresh the frame periodically
-        self.current_frame.after(refresh_ms, self.show_input)
+        self.current_frame.after(refresh_ms, self.current_frame.update)
 
     # set the location
     def set_location(self):
@@ -179,9 +184,9 @@ class App(customtkinter.CTk):
             self.current_frame = WeatherFrame(master=self)
             # pack the weather frame
             self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
-            self.current_frame.display_weather(hourly_forecast_data=self.hourly_forecast_data, detailed_forecast_data=self.detailed_forecast_data, alerts_data=self.active_alerts_data)
+            self.current_frame.display_weather(self.hourly_forecast_data, self.detailed_forecast_data, self.active_alerts_data)
             # update the frame periodically
-            self.current_frame.after(refresh_ms, self.show_weather)
+            self.current_frame.after(refresh_ms, self.current_frame.update, self.hourly_forecast_data, self.detailed_forecast_data, self.active_alerts_data)
         except Exception as e:
             error_text = 'Error updating weather data: {}'.format(e)
             # display a toplevel window
@@ -190,7 +195,7 @@ class App(customtkinter.CTk):
             self.segmented_button_callback(self.segmented_button.cget('variable'))
 
     # show weekly forecast
-    def show_weekly_forecast(self):
+    def show_7day_forecast(self):
         self.hide_current()
         try:
             self.check_for_updates()
@@ -198,9 +203,7 @@ class App(customtkinter.CTk):
             self.current_frame = WeeklyForecastFrame(master=self)
             # pack the weekly forecast frame
             self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
-            self.current_frame.show_weekly_forecast(forecast_data=self.detailed_forecast_data, current=self.detailed_forecast_data['properties']['periods'][0]['name'])
-            # update the frame periodically
-            self.current_frame.after(refresh_ms, self.show_weekly_forecast)
+            self.current_frame.show_weekly_forecast(self.detailed_forecast_data)
         except Exception as e:
             error_text = 'Error updating weather data: {}'.format(e)
             # display a toplevel window
@@ -217,9 +220,9 @@ class App(customtkinter.CTk):
             self.current_frame = TemperatureGraphFrame(master=self)
             # pack the temperature forecast frame
             self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
-            self.current_frame.show_hourly_graph(forecast_data=self.hourly_forecast_data)
+            self.current_frame.show_hourly_graph(self.hourly_forecast_data)
             # update the frame periodically
-            self.current_frame.after(refresh_ms, self.show_hourly_temperature)
+            self.current_frame.after(refresh_ms, self.current_frame.update, self.hourly_forecast_data)
         except Exception as e:
             error_text = 'Error updating weather data: {}'.format(e)
             # display a toplevel window
