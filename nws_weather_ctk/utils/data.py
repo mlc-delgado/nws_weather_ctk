@@ -1,5 +1,5 @@
 import requests
-from config import logger
+from nws_weather_ctk.utils.config import logger
 import time
 
 # retry delay in seconds

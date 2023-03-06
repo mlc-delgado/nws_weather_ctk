@@ -27,8 +27,19 @@ def load_config():
 
 # clear the config file
 def clear_config():
+    config = load_config()
+    if not config:
+        config = {}
+    if config['window_theme']:
+        pass
+    else:
+        config['window_theme'] = 'light'
+    if config['icon_theme']:
+        pass
+    else:
+        config['icon_theme'] = 'dark'
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
-        yaml.dump({}, f)
+        yaml.dump(config, f)
     f.close()
 
 # check the config file for the location
@@ -82,8 +93,10 @@ def check_city_input(config):
         raise Exception('Invalid city provided: {}. please check your location and try again'.format(config['city']))
         
 # Update the config file
-def update(city, state):
-    config = {'city': city, 'state': state}
+def update_config(city, state):
+    config = load_config()
+    config['city'] = city
+    config['state'] = state
 
     # validate the state name or abbreviation
     config = check_state_input(config)
@@ -133,6 +146,28 @@ def update(city, state):
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
         yaml.dump(config, f)
     f.close()
+
+def update_appearance(window_theme=None, icon_theme=None):
+    # Update the appearance in the config file
+    with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'r') as f:
+        config = yaml.safe_load(f)
+    if config:
+        if window_theme:
+            try:
+                config['window_theme'] = window_theme
+            except Exception:
+                pass
+        if icon_theme:
+            try:
+                config['icon_theme'] = icon_theme
+            except Exception:
+                pass
+    else:
+        config = {}
+        config['window_theme'] = 'light'
+        config['icon_theme'] = 'dark'
+    with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
+        yaml.dump(config, f)
 
 # check if the forecast is for the selected day of the week
 def is_weekday(start_time, day_of_week):

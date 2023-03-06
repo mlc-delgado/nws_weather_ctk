@@ -1,61 +1,20 @@
 import customtkinter
-from config import logger, update, load_config,  clear_config, check_config, refresh_ms
-from data import hourly_forecast, detailed_forecast, active_alerts
-from frames import WeatherFrame, WeeklyForecastFrame, TemperatureGraphFrame
+from tkinter import PhotoImage
+from nws_weather_ctk.utils.config import logger, update_config, update_appearance, load_config,  clear_config, check_config, refresh_ms
+from nws_weather_ctk.utils.data import hourly_forecast, detailed_forecast, active_alerts
+from nws_weather_ctk.utils.icons import get_emoji
+from nws_weather_ctk.frames.weekly import WeeklyForecastFrame
+from nws_weather_ctk.frames.hourly import TemperatureGraphFrame
+from nws_weather_ctk.frames.weather import WeatherFrame
+from nws_weather_ctk.frames.settings import SettingsFrame
+from nws_weather_ctk.frames.input import InputFrame
 import sys
 
 # Set the appearance mode to system theme
 customtkinter.set_appearance_mode('system')
 
-# frame to show the user input
-class InputFrame(customtkinter.CTkFrame):
-    def __init__(self, *args, **kwargs):
-        # call the parent class constructor
-        super().__init__(*args, **kwargs)
-
-    def clear_frame(self):
-        # clear the frame
-        for widget in self.winfo_children():
-            widget.destroy()
-
-    # display the input boxes
-    def show_input(self):
-        # set the placeholder texts
-        self.refresh()
-        # clear the frame
-        self.clear_frame()
-        # provide input boxes for city and state
-        self.entry1 = customtkinter.CTkEntry(master=self, font=('arial bold', 14),  placeholder_text=self.placeholder_city)
-        self.entry1.pack(pady=12, padx=12)
-
-        self.entry2 = customtkinter.CTkEntry(master=self, font=('arial bold', 14), placeholder_text=self.placeholder_state)
-        self.entry2.pack(pady=12, padx=12)
-
-        # add button to set location
-        self.button = customtkinter.CTkButton(master=self, font=('arial bold', 14), text='Set Location', command=lambda: app.set_location())
-        self.button.pack(pady=12, padx=12)
-
-    # refresh the placeholder texts
-    def refresh(self):
-        # load the config and check if location has been set
-        config = load_config()
-        if check_config(config):
-            # set the placeholder text to the current location
-            self.placeholder_city = config['city']
-            self.placeholder_state = config['state']
-        else:
-            # set the placeholder text to the default location
-            self.placeholder_city = 'City'
-            self.placeholder_state = 'State'
-
-    # return the values of the input boxes
-    def get_values(self):
-        return self.entry1.get(), self.entry2.get()
-    
-    def update(self):
-        self.refresh()
-        self.entry1.configure(placeholder_text=self.placeholder_city)
-        self.entry2.configure(placeholder_text=self.placeholder_state)
+# Load the emoji font
+customtkinter.FontManager.load_font('nws_weather_ctk/fonts/Symbola.ttf')
 
 # define the main App class
 class App(customtkinter.CTk):
@@ -65,8 +24,25 @@ class App(customtkinter.CTk):
 
         # set the window title
         self.title('NWS Weather CTk')
-
+        # set the default frame
         self.currentFrame = None
+        # set the default icon
+        self.wm_iconphoto(True, PhotoImage(file='nws_weather_ctk/icons/mostlySunny_dark.png'))
+        # safely shut down the app when the window is closed
+        self.protocol("WM_DELETE_WINDOW", sys.exit)
+
+        # load the config file and check if the window theme and icon theme have been set
+        config = load_config()
+        try:
+            self.theme = config['window_theme']
+        except Exception:
+            self.theme = 'light'
+        try:
+            self.icon_theme = config['icon_theme']
+        except Exception:
+            self.icon_theme = 'dark'
+        update_appearance(window_theme=self.theme, icon_theme=self.icon_theme)
+        self.set_theme(self.theme)
 
         # load the config file and check if the location is set
         if not check_config(load_config()):
@@ -75,7 +51,25 @@ class App(customtkinter.CTk):
             self.show_input()
         else:
             # if the location is set, show the menu and weather frames
+            self.update_forecast_data()
+            self.update_icon()
             self.menu()
+            # periodically update the wm_iconphoto
+            self.after(refresh_ms, self.update_icon)
+
+    def set_theme(self, theme):
+        customtkinter.set_appearance_mode(theme)
+
+    def set_icon_theme(self, theme):
+        self.icon_theme = theme
+        self.update_icon()
+
+    def update_icon(self):
+        short_forecast = self.hourly_forecast_data['properties']['periods'][0]['shortForecast']
+        isDaytime = self.hourly_forecast_data['properties']['periods'][0]['isDaytime']
+        # switch the app icon to the current weather icon
+        filename, emoji = get_emoji(short_forecast, isDaytime)
+        self.wm_iconphoto(True, PhotoImage(file='nws_weather_ctk/icons/{filename}_{theme}.png'.format(filename=filename, theme=self.icon_theme)))
 
     # update all forecast, detailed forecast, and alerts data
     def update_forecast_data(self):
@@ -89,6 +83,9 @@ class App(customtkinter.CTk):
 
     # check temperature and shortForecast to determine if forecast is out of sync
     def check_for_updates(self):
+        if self.hourly_forecast_data is None or self.detailed_forecast_data is None or self.active_alerts_data is None:
+            self.update_forecast_data()
+            return self.check_for_updates()
         try:
             # get current forecast
             current_detailed_forecast = detailed_forecast(load_config())
@@ -102,6 +99,7 @@ class App(customtkinter.CTk):
             self.update_forecast_data()
         else:
             pass
+        return self.hourly_forecast_data, self.detailed_forecast_data, self.active_alerts_data
 
     # show the main menu and selected weather frame
     def menu(self, choice=None):
@@ -116,11 +114,8 @@ class App(customtkinter.CTk):
         # set a default value for the segmented button
         segmented_button_var = customtkinter.StringVar(value=choice)
         # create a segmented button to select the weather data to display
-        self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current', 'Hourly', '7-Day', 'Location'], command=self.segmented_button_callback, variable=segmented_button_var)
+        self.segmented_button = customtkinter.CTkSegmentedButton(master=self, font=('arial bold', 14), values=['Current', 'Hourly', '7-Day', 'Location', 'Settings'], command=self.segmented_button_callback, variable=segmented_button_var)
         self.segmented_button.pack(pady=10, padx=20)
-
-        # update the forecast data
-        self.update_forecast_data()
 
         # show the selected frame
         self.segmented_button_callback(choice)
@@ -129,6 +124,10 @@ class App(customtkinter.CTk):
     def segmented_button_callback(self, value=None):
         # hide the current frame
         self.hide_current()
+        # check for updates to the forecast data
+        self.check_for_updates()
+        # update the icon
+        self.update_icon()
         if value == 'Current':
             self.show_weather()
         elif value == '7-Day':
@@ -137,6 +136,8 @@ class App(customtkinter.CTk):
             self.show_input()
         elif value == 'Hourly':
             self.show_hourly_temperature()
+        elif value == 'Settings':
+            self.show_settings()
 
     # display input
     def show_input(self, reset=False):
@@ -160,7 +161,7 @@ class App(customtkinter.CTk):
     # set the location
     def set_location(self):
         try:
-            update(self.current_frame.get_values()[0], self.current_frame.get_values()[1])
+            update_config(self.current_frame.get_values()[0], self.current_frame.get_values()[1])
         # ignore exception when the input frame is not present
         except AttributeError:
             self.menu()
@@ -173,11 +174,11 @@ class App(customtkinter.CTk):
             self.show_input(reset=True)
         else:
             # redirect to the menu and weather frames
+            self.update_forecast_data()
             self.menu()  
 
     # display weather
     def show_weather(self):
-        self.hide_current()
         try:
             self.check_for_updates()
             # add a frame for weather
@@ -196,7 +197,6 @@ class App(customtkinter.CTk):
 
     # show weekly forecast
     def show_7day_forecast(self):
-        self.hide_current()
         try:
             self.check_for_updates()
             # add the weekly forecast frame
@@ -204,6 +204,8 @@ class App(customtkinter.CTk):
             # pack the weekly forecast frame
             self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
             self.current_frame.show_weekly_forecast(self.detailed_forecast_data)
+            # update the frame periodically
+            self.current_frame.after(refresh_ms, self.current_frame.update, self.detailed_forecast_data)
         except Exception as e:
             error_text = 'Error updating weather data: {}'.format(e)
             # display a toplevel window
@@ -213,7 +215,6 @@ class App(customtkinter.CTk):
 
     # show the hourly temperature forecast
     def show_hourly_temperature(self):
-        self.hide_current()
         try:
             self.check_for_updates()
             # add the temperature forecast frame
@@ -222,13 +223,20 @@ class App(customtkinter.CTk):
             self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
             self.current_frame.show_hourly_graph(self.hourly_forecast_data)
             # update the frame periodically
-            self.current_frame.after(refresh_ms, self.current_frame.update, self.hourly_forecast_data)
+            self.current_frame.after(refresh_ms, self.current_frame.update, self.hourly_forecast_data, 24)
         except Exception as e:
             error_text = 'Error updating weather data: {}'.format(e)
             # display a toplevel window
             self.show_error(error=error_text)
             # reload the current frame
             self.segmented_button_callback(self.segmented_button.cget('variable'))
+
+    # show the settings frame
+    def show_settings(self):
+        # add the settings frame
+        self.current_frame = SettingsFrame(master=self)
+        # pack the settings frame
+        self.current_frame.pack(pady=20, padx=20, fill='both', expand=True)
 
     # hide the current frame
     def hide_current(self):
@@ -254,7 +262,6 @@ class App(customtkinter.CTk):
 if __name__ == '__main__':
     try:
         app = App()
-        app.protocol("WM_DELETE_WINDOW", sys.exit)
         app.mainloop()
     except KeyboardInterrupt:
         sys.exit()

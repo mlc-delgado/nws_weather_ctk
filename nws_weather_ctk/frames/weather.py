@@ -1,10 +1,6 @@
 import customtkinter
-from config import load_config, is_weekday, get_day_of_week, get_week, refresh_ms
-from icons import get_emoji
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.dates as mdates
-import pandas as pd
-import datetime as dt
+from nws_weather_ctk.utils.config import load_config, is_weekday, get_day_of_week, get_week, refresh_ms
+from nws_weather_ctk.utils.icons import get_emoji
 
 # frame to show the current forecast and alerts
 class WeatherFrame(customtkinter.CTkFrame):
@@ -62,6 +58,7 @@ class WeatherFrame(customtkinter.CTkFrame):
         self.frame4.show_detailed_forecast(detailed_forecast_data)
 
     def update(self, hourly_forecast_data=None, detailed_forecast_data=None, alerts_data=None):
+        self.master.check_for_updates()
         self.frame1.update(hourly_forecast_data,detailed_forecast_data)
         self.frame2.update(hourly_forecast_data,alerts_data)
         self.frame4.update(detailed_forecast_data)
@@ -147,7 +144,7 @@ class IconFrame(customtkinter.CTkFrame):
 
         # add a label for the current weather icon
         # display the emoji for the forecast
-        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',64), text=self.emoji)
+        self.iconLabel = customtkinter.CTkLabel(master=self, font=('Symbola',64), text=self.emoji)
         self.iconLabel.pack(pady=2, padx=12)
 
         # add a label for the temperature
@@ -184,7 +181,7 @@ class IconFrame(customtkinter.CTkFrame):
         else:
             self.high_low_text = 'High: {high}°F Low: {low}°F'.format( high=high, low=low)
         # set the emoji for the current forecast
-        self.emoji = get_emoji(hourly_forecast_data['properties']['periods'][0]['shortForecast'], hourly_forecast_data['properties']['periods'][0]['isDaytime'])
+        self.filename, self.emoji = get_emoji(hourly_forecast_data['properties']['periods'][0]['shortForecast'], hourly_forecast_data['properties']['periods'][0]['isDaytime'])
         self.current_temperature = hourly_forecast_data['properties']['periods'][0]['temperature']
         self.hourly_forecast = hourly_forecast_data['properties']['periods'][0]['shortForecast']
 
@@ -196,7 +193,6 @@ class IconFrame(customtkinter.CTkFrame):
         self.temperatureLabel.configure(text='{temperature}°F'.format(temperature=self.current_temperature))
         self.highLowLabel.configure(text=self.high_low_text)
         self.locationLabel.configure(text='{city}, {state}\n{forecast}'.format(city=config['city'], state=config['state'], forecast=self.hourly_forecast))
-
 
 # frame to show the detailed forecast
 class DetailedForecastFrame(customtkinter.CTkFrame):
@@ -239,77 +235,10 @@ class DetailedForecastFrame(customtkinter.CTkFrame):
 
     # update the text for the textbox
     def update(self, detailed_forecast_data=None):
-        self.refresh(detailed_forecast_data)
         self.detailedForecastTextbox.configure(state='normal')
         self.detailedForecastTextbox.delete('0.0', 'end')
         self.detailedForecastTextbox.insert('0.0', self.text)
         self.detailedForecastTextbox.configure(state='disabled')
-
-# frame to show the daily forecast
-class DailyForecastFrame(customtkinter.CTkFrame):
-    def __init__(self, *args, **kwargs):
-        # call the parent class contstructor
-        super().__init__(*args, **kwargs)
-
-    def show_daily_forecast(self, detailed_forecast_data=None, period=None):
-        self.refresh(detailed_forecast_data, period)
-        # add a label for the weather icon
-        # display the emoji for the forecast
-        self.iconLabel = customtkinter.CTkLabel(master=self, font=('arial',48), text=self.emoji)
-        self.iconLabel.pack(pady=12, padx=12)
-
-        # add label to show the current temperature and forecast
-        self.forecastLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text=self.forecast_text)
-        self.forecastLabel.pack(pady=12, padx=12)
-
-        # refresh the icon and forecast label periodically
-        self.iconLabel.after(refresh_ms, self.update, detailed_forecast_data, period)
-        self.forecastLabel.after(refresh_ms, self.update, detailed_forecast_data, period)
-
-    # set the icon and forecast text
-    def refresh(self, detailed_forecast_data=None, period=None):
-        self.emoji = get_emoji(detailed_forecast_data['properties']['periods'][period]['shortForecast'], detailed_forecast_data['properties']['periods'][period]['isDaytime'])
-        self.forecast_text = '{day}\n{temperature}°F\n{forecast}'.format(day=detailed_forecast_data['properties']['periods'][period]['name'], temperature=detailed_forecast_data['properties']['periods'][period]['temperature'], forecast=detailed_forecast_data['properties']['periods'][period]['shortForecast'])
-
-    # update the icon and forecast text
-    def update(self, detailed_forecast_data=None, period=None):
-        self.refresh(detailed_forecast_data, period)
-        self.iconLabel.configure(text=self.emoji)
-        self.forecastLabel.configure(text=self.forecast_text)
-
-# frame to show the weekly forecast
-class WeeklyForecastFrame(customtkinter.CTkFrame):
-    def __init__(self, *args, **kwargs):
-        # call the parent class constructor
-        super().__init__(*args, **kwargs)
-
-    # show the weekly forecast
-    def show_weekly_forecast(self, detailed_forecast_data=None):
-        current = detailed_forecast_data['properties']['periods'][0]['name']
-        # set a starting var for the column
-        column = 0
-        # for each period in the forecast
-        for i in range(0, len(detailed_forecast_data['properties']['periods'])):
-            # if the period name is today's current period or a day of the week
-            if detailed_forecast_data['properties']['periods'][i]['name'] in [ current, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
-                # unpack the frame
-                try:
-                    self.daily_forecast_frame.pack_forget()
-                except:
-                    pass
-                # create a frame to hold the weather icon and forecast
-                self.daily_forecast_frame = DailyForecastFrame(master=self)
-                self.daily_forecast_frame.grid(row=0, column=column, padx=12, pady=12)
-                self.daily_forecast_frame.show_daily_forecast(detailed_forecast_data, i)
-                # increment the column
-                column += 1
-
-    def update(self, detailed_forecast_data=None):
-        # destroy all the daily forecast frames
-        for child in self.winfo_children():
-            child.destroy()
-        # show the weekly forecast
-        self.show_weekly_forecast(detailed_forecast_data)
 
 # frame to show the active alerts
 class ActiveAlertsFrame(customtkinter.CTkFrame):
@@ -364,89 +293,3 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
         self.alertTextbox.delete('0.0', 'end')
         self.alertTextbox.insert('0.0', self.text)
         self.alertTextbox.configure(state='disabled')
-
-# frame to show temperature graph
-class TemperatureGraphFrame(customtkinter.CTkFrame):
-    def __init__(self, *args, **kwargs):
-        # call the parent class constructor
-        super().__init__(*args, **kwargs)
-
-    def build_graph(self, x_title=None, x_axis_labels=None, y_axis_labels=None, x_size=None, y_size=None, locator=None):
-        df = pd.DataFrame({x_title: x_axis_labels, '°F': y_axis_labels})
-
-        ax = df.plot(x=x_title, y='°F', kind='line', linestyle='dashed', marker='o', color='blue')
-
-        # set locator on the x axis
-        if locator == 'day':
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        elif locator == 'hour':
-            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-        # set the figure size
-        fig = ax.get_figure()
-        fig.set_size_inches(x_size, y_size)
-
-        return fig
-    
-    # show the daily temperature graph
-    def show_daily_graph(self, hourly_forecast_data=None):
-        periods = len(hourly_forecast_data['properties']['periods'])
-        self.update(hourly_forecast_data, periods)
-        # add a label for the temperature graph title
-        self.titleLabel = customtkinter.CTkLabel(master=self, font=('arial bold', 14), text='Weekly Temperature Forecast')
-        self.titleLabel.pack(pady=12, padx=12)
-
-        self.fig = self.set_values(hourly_forecast_data, periods)
-
-        self.show(self.fig)
-
-    def show_hourly_graph(self, hourly_forecast_data=None):
-        periods = 24
-        self.update(hourly_forecast_data, periods)
-        # add a label for the temperature graph title
-        self.titleLabel = customtkinter.CTkLabel(master=self, font=('arial bold', 14), text='24 Hour Forecast')
-        self.titleLabel.pack(pady=12, padx=12)
-
-        self.fig = self.set_values(hourly_forecast_data, periods)
-
-        self.show(self.fig)
-
-    def set_values(self, hourly_forecast_data=None, periods=None):
-        # create the x axis and y axis values for startTime of each period
-        self.x_axis_labels = []
-        self.y_axis_labels = []
-        for i in range(0, periods):
-            # get startTime for each period
-            startTime = hourly_forecast_data['properties']['periods'][i]['startTime']
-            # convert the startTime to a datetime object
-            startTime = dt.datetime.strptime(startTime, '%Y-%m-%dT%H:%M:%S%z')
-            # append the startTime to the x axis labels
-            self.x_axis_labels.append(startTime)
-            # append the temperature for each period to the y axis labels
-            self.y_axis_labels.append(int(hourly_forecast_data['properties']['periods'][i]['temperature']))
-        if periods != 24:
-            self.x_title = 'Day'
-            self.x_size = 14
-            self.y_size = 5
-            self.locator = 'day'
-        else:
-            self.x_title = 'Hour'
-            self.x_size = 14
-            self.y_size = 5
-            self.locator = 'hour'
-        return self.build_graph(self.x_title, self.x_axis_labels, self.y_axis_labels, self.x_size, self.y_size, self.locator)
-
-    def show(self, fig=None):
-        # remove the canvas from the frame
-        try:
-            self.canvas.get_tk_widget().pack_forget()
-        except:
-            pass
-        # create the canvas to show the graph
-        self.canvas = FigureCanvasTkAgg(fig, master=self)
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack(pady=12, padx=12, fill='both', expand=True)
-
-    def update(self, hourly_forecast_data=None, periods=None):
-        self.fig = self.set_values(hourly_forecast_data, periods)
-        self.show(self.fig)
-
