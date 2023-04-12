@@ -5,8 +5,9 @@ class SettingsFrame(customtkinter.CTkFrame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.theme = self.master.theme
-        self.icon_theme = self.master.icon_theme
+        config = load_config()
+        self.theme = config['window_theme']
+        self.icon_theme = config['icon_theme']
 
         self.create_widgets()
 

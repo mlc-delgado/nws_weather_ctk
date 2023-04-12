@@ -14,15 +14,16 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # set the logging file
 logging.basicConfig(filename='nws_weather_ctk.log', filemode='w')
 
-# set the frame refresh rate in milliseconds
-# default 10 minutes 
-refresh_ms = 600000
+# delay before checking for updates
+# default 10 minutes
+REFRESH_MS = 600000
+# delay page loading if weather data not available
+WAIT_SECONDS = 1
 
 # load the config file
 def load_config():
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'r') as f:
         config = yaml.safe_load(f)
-    f.close()
     return config
 
 # clear the config file
@@ -40,7 +41,6 @@ def clear_config():
         config['icon_theme'] = 'dark'
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
         yaml.dump(config, f)
-    f.close()
 
 # check the config file for the location
 def check_config(config):
@@ -145,7 +145,6 @@ def update_config(city, state):
     # Write the config file with the new data
     with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'w') as f:
         yaml.dump(config, f)
-    f.close()
 
 def update_appearance(window_theme=None, icon_theme=None):
     # Update the appearance in the config file

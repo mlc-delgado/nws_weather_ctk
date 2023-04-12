@@ -1,5 +1,5 @@
 import requests
-from nws_weather_ctk.utils.config import logger
+from nws_weather_ctk.utils.config import logger, load_config
 import time
 
 # retry delay in seconds
@@ -82,3 +82,21 @@ def active_alerts(config):
             # try again
             return active_alerts(config)
         return data
+    
+def filter_alerts(active_alerts_data):
+    # load the config file
+    config = load_config()
+
+    # make a dictionary of alerts that match the location
+    alert_matches = {}
+
+    # for each alert check if the county name is in the alert area description
+    for alert in active_alerts_data['features']:
+        if config['county'] in alert['properties']['areaDesc']:
+            # store the alert in a dictionary with the event as the key
+            alert_matches[alert['properties']['event']] = {
+                'description': alert['properties']['description'],
+                'instruction': alert['properties']['instruction'],
+                'event': alert['properties']['event']
+            }
+    return alert_matches

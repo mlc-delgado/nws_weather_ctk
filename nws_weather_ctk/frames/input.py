@@ -1,4 +1,5 @@
 import customtkinter
+import tkinter
 from nws_weather_ctk.utils.config import load_config, check_config
 
 # frame to show the user input
@@ -18,12 +19,27 @@ class InputFrame(customtkinter.CTkFrame):
         self.refresh()
         # clear the frame
         self.clear_frame()
-        # provide input boxes for city and state
-        self.entry1 = customtkinter.CTkEntry(master=self, font=('arial bold', 14),  placeholder_text=self.placeholder_city)
-        self.entry1.pack(pady=12, padx=12)
 
-        self.entry2 = customtkinter.CTkEntry(master=self, font=('arial bold', 14), placeholder_text=self.placeholder_state)
-        self.entry2.pack(pady=12, padx=12)
+        # provide input boxes for city and state
+        self.city_entry = customtkinter.CTkEntry(master=self, font=('arial bold', 14))
+        self.city_entry.pack(pady=12, padx=12)
+        self.state_entry = customtkinter.CTkEntry(master=self, font=('arial bold', 14))
+        self.state_entry.pack(pady=12, padx=12)
+
+        # if the city has not been set, set the placeholder text to 'City'
+        if self.placeholder_city == 'City':
+            self.city_entry.configure(placeholder_text=self.placeholder_city)
+        # auto fill the entry box if the placeholder is not the default
+        else:
+            self.city_var = tkinter.StringVar(self, value=self.placeholder_city)
+            self.city_entry.configure(textvariable=self.city_var)
+        # if the state has not been set, set the placeholder text to 'State'
+        if self.placeholder_state == 'State':
+            self.state_entry.configure(placeholder_text=self.placeholder_state)
+        # auto fill the entry box if the placeholder is not the default
+        else:
+            self.state_var = tkinter.StringVar(self, value=self.placeholder_state)
+            self.state_entry.configure(textvariable=self.state_var)
 
         # add button to set location
         self.button = customtkinter.CTkButton(master=self, font=('arial bold', 14), text='Set Location', command=lambda: self.master.set_location())
@@ -44,9 +60,13 @@ class InputFrame(customtkinter.CTkFrame):
 
     # return the values of the input boxes
     def get_values(self):
-        return self.entry1.get(), self.entry2.get()
+        return self.city_entry.get(), self.state_entry.get()
     
     def update(self):
-        self.refresh()
-        self.entry1.configure(placeholder_text=self.placeholder_city)
-        self.entry2.configure(placeholder_text=self.placeholder_state)
+        try:
+            self.city_entry.pack_forget()
+            self.state_entry.pack_forget()
+            self.button.pack_forget()
+        except:
+            pass
+        self.show_input()

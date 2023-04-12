@@ -1,5 +1,5 @@
 import customtkinter
-from nws_weather_ctk.utils.config import load_config, is_weekday, get_day_of_week, get_week, refresh_ms
+from nws_weather_ctk.utils.config import load_config, is_weekday, get_day_of_week, get_week
 from nws_weather_ctk.utils.icons import get_emoji
 
 # frame to show the current forecast and alerts
@@ -8,60 +8,68 @@ class WeatherFrame(customtkinter.CTkFrame):
         # call the parent class constructor
         super().__init__(*args, **kwargs)
 
-    def check_for_alerts(self, alerts_data=None):
+        self.hourly_forecast_data = None
+        self.detailed_forecast_data = None
+        self.active_alerts_data = None
+        self.alerts = {}
+
+    def check_for_alerts(self):
         # load the config file
         config = load_config()
 
         # make a dictionary of alerts that match the location
         alert_matches = {}
 
-        # check if there are active alerts for the state
-        if len(alerts_data['features']) > 0:
-            # for each alert check if the county name is in the alert area description
-            for alert in alerts_data['features']:
-                if config['county'] in alert['properties']['areaDesc']:
-                    # store the alert in a dictionary with the event as the key
-                    alert_matches[alert['properties']['event']] = {
-                        'description': alert['properties']['description'],
-                        'instruction': alert['properties']['instruction']
-                    }
+        # for each alert check if the county name is in the alert area description
+        for alert in self.active_alerts_data['features']:
+            if config['county'] in alert['properties']['areaDesc']:
+                # store the alert in a dictionary with the event as the key
+                alert_matches[alert['properties']['event']] = {
+                    'description': alert['properties']['description'],
+                    'instruction': alert['properties']['instruction'],
+                    'event': alert['properties']['event']
+                }
         return alert_matches
 
     # display the forecast and alerts
-    def display_weather(self, hourly_forecast_data=None, detailed_forecast_data=None, alerts_data=None):
+    def display_elements(self):
+        self.refresh()
+
+        # check if there are active alerts
+        if len(self.active_alerts_data['features']) > 0:
+            self.alerts = self.check_for_alerts()
+
         # create the frame for the weather icon
         self.frame1 = IconFrame(master=self)
         self.frame1.grid(row=0, column=0, padx=12, pady=12)
-        self.frame1.show_icon(hourly_forecast_data, detailed_forecast_data)
+        self.frame1.show_icon()
         # create the frame for the hourly forecast details
         self.frame2 = HourlyForecastFrame(master=self)
         self.frame2.grid(row=0, column=1, padx=12, pady=12)
-        self.frame2.show_hourly_forecast(hourly_forecast_data, alerts_data)
+        self.frame2.show_hourly_forecast()
 
         # set default column and span for detailed forecast frame
         detailedforecast_span = 2
 
-        # check if there are active alerts
-        if len(alerts_data['features']) > 0:
-            alert_matches = self.check_for_alerts(alerts_data)
-            if len(alert_matches) > 0:
-                # add a frame to show the active alerts
-                self.frame4 = ActiveAlertsFrame(master=self)
-                self.frame4.grid(row=1, column=1, padx=12, pady=12)
-                self.frame4.show_active_alerts(alert_matches)
-                # add the alerts alerts next to the detailed forecast
-                detailedforecast_span = 1
+        # add a frame to show the active alerts
+        if len(self.alerts) > 0:
+            # add a frame to show the active alerts
+            self.frame4 = ActiveAlertsFrame(master=self)
+            self.frame4.grid(row=1, column=1, padx=12, pady=12)
+            self.frame4.show_active_alerts()
+            # add the alerts alerts next to the detailed forecast
+            detailedforecast_span = 1
 
         # add a frame to show the detailed forecast
-        self.frame4 = DetailedForecastFrame(master=self)
-        self.frame4.grid(row=1, column=0, padx=12, pady=12, columnspan=detailedforecast_span)
-        self.frame4.show_detailed_forecast(detailed_forecast_data)
+        self.frame3 = DetailedForecastFrame(master=self)
+        self.frame3.grid(row=1, column=0, padx=12, pady=12, columnspan=detailedforecast_span)
+        self.frame3.show_detailed_forecast()
 
-    def update(self, hourly_forecast_data=None, detailed_forecast_data=None, alerts_data=None):
-        self.master.check_for_updates()
-        self.frame1.update(hourly_forecast_data,detailed_forecast_data)
-        self.frame2.update(hourly_forecast_data,alerts_data)
-        self.frame4.update(detailed_forecast_data)
+    # refresh the forecast data
+    def refresh(self):
+        self.detailed_forecast_data = self.master.data['detailed_forecast_data']
+        self.hourly_forecast_data = self.master.data['hourly_forecast_data']
+        self.active_alerts_data = self.master.data['active_alerts_data']
 
 # frame to show the hourly forecast
 class HourlyForecastFrame(customtkinter.CTkFrame):
@@ -70,11 +78,12 @@ class HourlyForecastFrame(customtkinter.CTkFrame):
         super().__init__(*args, **kwargs)
 
         self.alerts = []
-        self.alertTitle = 'Active Alerts:'
+        self.alertTitle = '* Active Alerts *'
+        self.text = ''
 
-    def show_hourly_forecast(self, hourly_forecast_data=None, alerts_data=None):
+    def show_hourly_forecast(self):
         # add label to show the current temperature and forecast
-        self.refresh(hourly_forecast_data, alerts_data)
+        self.refresh()
         self.forecastLabel = customtkinter.CTkLabel(master=self, font=('arial bold',14), text=self.text)
         self.forecastLabel.pack(pady=12, padx=12)
 
@@ -87,49 +96,29 @@ class HourlyForecastFrame(customtkinter.CTkFrame):
             self.alertsListLabel.pack(pady=0, padx=12)
 
     # set the label texts
-    def refresh(self, hourly_forecast_data=None, alerts_data=None):
+    def refresh(self):
+        # load the config file
         config = load_config()
 
         self.text='Humidity: {humidity}%\n\nWind speed: {wind}\n\nWind direction: {wind_direction}\n\nPrecipitation: {precipitation}%\n\nDew point: {dew_point}°F'.format(
-            forecast=hourly_forecast_data['properties']['periods'][0]['shortForecast'],
+            forecast=self.master.hourly_forecast_data['properties']['periods'][0]['shortForecast'],
             city=config['city'],
             state=config['state'],
-            humidity=hourly_forecast_data['properties']['periods'][0]['relativeHumidity']['value'],
-            wind=hourly_forecast_data['properties']['periods'][0]['windSpeed'],
-            wind_direction=hourly_forecast_data['properties']['periods'][0]['windDirection'],
-            precipitation=hourly_forecast_data['properties']['periods'][0]['probabilityOfPrecipitation']['value'],
+            humidity=self.master.hourly_forecast_data['properties']['periods'][0]['relativeHumidity']['value'],
+            wind=self.master.hourly_forecast_data['properties']['periods'][0]['windSpeed'],
+            wind_direction=self.master.hourly_forecast_data['properties']['periods'][0]['windDirection'],
+            precipitation=self.master.hourly_forecast_data['properties']['periods'][0]['probabilityOfPrecipitation']['value'],
             # convert dew point value from Celsius to Fahrenheit
-            dew_point = round((hourly_forecast_data['properties']['periods'][0]['dewpoint']['value'] * 9/5) + 32)
+            dew_point = round((self.master.hourly_forecast_data['properties']['periods'][0]['dewpoint']['value'] * 9/5) + 32)
             )
         
-        # add label to show active alerts if the alert contains the county name
-        if len(alerts_data['features']) > 0:
-            # make a list of alerts that match the county name
-            alert_matches = []
-            for alert in alerts_data['features']:
-                if config['county'] in alert['properties']['areaDesc']:
-                    alert_matches.append(alert['properties']['event'])
-
-            # display the alerts if there are any
-            if len(alert_matches) > 0:
-                # remove duplicates from the list
-                self.alerts = list(set(alert_matches))
+        # append active alerts if there are any
+        if len(self.master.alerts) > 0:
+            for alert in self.master.alerts:
+                self.alerts.append(self.master.alerts[alert]['event'])
+        # clear the alerts list when there are no alerts
         else:
             self.alerts = []
-            self.alertTitle = 'No Active Alerts'
-
-    # update the label text
-    def update(self, hourly_forecast_data=None, alerts_data=None):
-        self.refresh(hourly_forecast_data, alerts_data)
-        self.forecastLabel.configure(text=self.text)
-        try:
-            self.alertLabel.configure(text=self.alertTitle)
-        except:
-            pass
-        try:
-            self.alertsListLabel.configure(text='\n'.join(self.alerts))
-        except:
-            pass
 
 # frame to show the hourly forecast icon
 class IconFrame(customtkinter.CTkFrame):
@@ -138,8 +127,8 @@ class IconFrame(customtkinter.CTkFrame):
         super().__init__(*args, **kwargs)
 
     # show the current weather icon
-    def show_icon(self, hourly_forecast_data=None, detailed_forecast_data=None):
-        self.refresh(hourly_forecast_data, detailed_forecast_data)
+    def show_icon(self):
+        self.refresh()
         config = load_config()
 
         # add a label for the current weather icon
@@ -158,13 +147,13 @@ class IconFrame(customtkinter.CTkFrame):
         self.locationLabel.pack(pady=12, padx=12)
 
     # set the label texts
-    def refresh(self, hourly_forecast_data=None, detailed_forecast_data=None):
+    def refresh(self):
         # make a list of all temperatures throughout the day
         temperatures = []
         # add the current temperature to the list
-        temperatures.append(hourly_forecast_data['properties']['periods'][0]['temperature'])
+        temperatures.append(self.master.hourly_forecast_data['properties']['periods'][0]['temperature'])
         # for each period startTime that matches today's date
-        for period in detailed_forecast_data['properties']['periods']:
+        for period in self.master.detailed_forecast_data['properties']['periods']:
             # if the startTime is in the list of dates in get_week()
             for date in get_week():
                 if date in period['startTime']:
@@ -181,18 +170,9 @@ class IconFrame(customtkinter.CTkFrame):
         else:
             self.high_low_text = 'High: {high}°F Low: {low}°F'.format( high=high, low=low)
         # set the emoji for the current forecast
-        self.filename, self.emoji = get_emoji(hourly_forecast_data['properties']['periods'][0]['shortForecast'], hourly_forecast_data['properties']['periods'][0]['isDaytime'])
-        self.current_temperature = hourly_forecast_data['properties']['periods'][0]['temperature']
-        self.hourly_forecast = hourly_forecast_data['properties']['periods'][0]['shortForecast']
-
-    # update the label text
-    def update(self, hourly_forecast_data=None, detailed_forecast_data=None):
-        config = load_config()
-        self.refresh(hourly_forecast_data, detailed_forecast_data)
-        self.iconLabel.configure(text=self.emoji)
-        self.temperatureLabel.configure(text='{temperature}°F'.format(temperature=self.current_temperature))
-        self.highLowLabel.configure(text=self.high_low_text)
-        self.locationLabel.configure(text='{city}, {state}\n{forecast}'.format(city=config['city'], state=config['state'], forecast=self.hourly_forecast))
+        self.filename, self.emoji = get_emoji(self.master.hourly_forecast_data['properties']['periods'][0]['shortForecast'], self.master.hourly_forecast_data['properties']['periods'][0]['isDaytime'])
+        self.current_temperature = self.master.hourly_forecast_data['properties']['periods'][0]['temperature']
+        self.hourly_forecast = self.master.hourly_forecast_data['properties']['periods'][0]['shortForecast']
 
 # frame to show the detailed forecast
 class DetailedForecastFrame(customtkinter.CTkFrame):
@@ -213,8 +193,8 @@ class DetailedForecastFrame(customtkinter.CTkFrame):
         self.detailedForecastTextbox.pack(pady=12, padx=12)
 
     # set defaults and objects for the frame
-    def show_detailed_forecast(self, detailed_forecast_data):
-        self.refresh(detailed_forecast_data)
+    def show_detailed_forecast(self):
+        self.refresh()
         # add a textbox to show the detailed forecast
         self.detailedForecastTextbox = customtkinter.CTkTextbox(master=self, wrap='word', fg_color='transparent', font=('arial bold', 14))
         self.detailedForecastTextbox.insert('0.0', self.text)
@@ -230,15 +210,8 @@ class DetailedForecastFrame(customtkinter.CTkFrame):
         self.showButton.pack(pady=12, padx=12)
 
     # set the text for the textbox
-    def refresh(self, detailed_forecast_data=None):
-        self.text = 'Forecast for {name}:\n\n{forecast}'.format(name=detailed_forecast_data['properties']['periods'][0]['name'], forecast=detailed_forecast_data['properties']['periods'][0]['detailedForecast'])
-
-    # update the text for the textbox
-    def update(self, detailed_forecast_data=None):
-        self.detailedForecastTextbox.configure(state='normal')
-        self.detailedForecastTextbox.delete('0.0', 'end')
-        self.detailedForecastTextbox.insert('0.0', self.text)
-        self.detailedForecastTextbox.configure(state='disabled')
+    def refresh(self):
+        self.text = 'Forecast for {name}:\n\n{forecast}'.format(name=self.master.detailed_forecast_data['properties']['periods'][0]['name'], forecast=self.master.detailed_forecast_data['properties']['periods'][0]['detailedForecast'])
 
 # frame to show the active alerts
 class ActiveAlertsFrame(customtkinter.CTkFrame):
@@ -246,7 +219,7 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
         # call the parent class constructor
         super().__init__(*args, **kwargs)
 
-        self.text = 'No active alerts.'
+        self.text = None
         # add a textbox to show the alert details
         self.alertTextbox = customtkinter.CTkTextbox(master=self, wrap='word', fg_color='transparent', font=('arial bold', 14))
 
@@ -257,15 +230,14 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
         self.alertTextbox.pack_forget()
 
     # show the active alerts
-    def show(self, alert_matches=None):
+    def show(self):
         self.showButton.pack_forget()
         self.hideButton.pack(pady=12, padx=12)
         self.alertTextbox.pack(pady=12, padx=12)
-        self.alertTextbox.after(refresh_ms, self.update, alert_matches)
 
     # display the active alerts details
-    def show_active_alerts(self, alert_matches=None):
-        self.update(alert_matches)
+    def show_active_alerts(self):
+        self.refresh()
         self.alertTextbox.insert('0.0', self.text)
         self.alertTextbox.configure(state='disabled')
 
@@ -279,17 +251,11 @@ class ActiveAlertsFrame(customtkinter.CTkFrame):
         self.showButton.pack(pady=12, padx=12)
 
     # set the active alerts text
-    def set_alerts(self, alert_matches=None):
-        # add the alerts to the text if there are any in the alert_matches list
-        if alert_matches:
+    def refresh(self):
+        if len(self.master.alerts) > 0:
+            # add the alerts to the text
             self.text = 'Active alerts:\n\n'
-            for alert in alert_matches:
-                self.text += 'Description: {description}\nInstruction: {instruction}\n'.format(description=alert_matches[alert]['description'], instruction=alert_matches[alert]['instruction'])
-
-    # update the active alerts text
-    def update(self, alert_matches=None):
-        self.set_alerts(alert_matches)
-        self.alertTextbox.configure(state='normal')
-        self.alertTextbox.delete('0.0', 'end')
-        self.alertTextbox.insert('0.0', self.text)
-        self.alertTextbox.configure(state='disabled')
+            for alert in self.master.alerts:
+                self.text += 'Description: {description}\nInstruction: {instruction}\n'.format(description=self.master.alerts[alert]['description'], instruction=self.master.alerts[alert]['instruction'])
+        else:
+            self.text = 'No Active Alerts'
