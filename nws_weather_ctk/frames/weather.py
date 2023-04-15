@@ -65,6 +65,11 @@ class WeatherFrame(customtkinter.CTkFrame):
         self.frame3.grid(row=1, column=0, padx=12, pady=12, columnspan=detailedforecast_span)
         self.frame3.show_detailed_forecast()
 
+    # clear the frame
+    def clear_frame(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
     # refresh the forecast data
     def refresh(self):
         self.detailed_forecast_data = self.master.data['detailed_forecast_data']

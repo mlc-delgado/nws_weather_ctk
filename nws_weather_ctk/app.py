@@ -103,7 +103,8 @@ class App(customtkinter.CTk):
             self.update_icon()
             # reload the current frame
             if type(self.current_frame) == WeatherFrame or type(self.current_frame) == TemperatureGraphFrame or type(self.current_frame) == WeeklyForecastFrame:
-                self.current_frame.pack_forget()
+                self.hide_current()
+                self.current_frame.clear_frame()
                 self.current_frame.display_elements()
                 self.current_frame.pack(pady=10, padx=20)
 

@@ -51,3 +51,8 @@ class WeeklyForecastFrame(customtkinter.CTkFrame):
                 self.daily_forecast_frame = DailyForecastFrame(master=self)
                 self.daily_forecast_frame.grid(row=0, column=i, padx=12, pady=12)
                 self.daily_forecast_frame.show_daily_forecast(i)
+
+    # clear the frame
+    def clear_frame(self):
+        for widget in self.winfo_children():
+            widget.destroy()

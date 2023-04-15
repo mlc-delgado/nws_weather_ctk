@@ -69,3 +69,8 @@ class TemperatureGraphFrame(customtkinter.CTkFrame):
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(pady=12, padx=12, fill='both', expand=True)
 
+    # clear the frame
+    def clear_frame(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
